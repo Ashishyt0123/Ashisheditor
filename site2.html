@@ -1,0 +1,2657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Ashish — Video Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08090c; --bg-2:#0d0f14;
+  --surface:rgba(255,255,255,.035); --surface-2:rgba(255,255,255,.06);
+  --border:rgba(255,255,255,.08); --border-2:rgba(255,255,255,.14);
+  --text:#e9eaee; --muted:#8b8f98; --muted-2:#5f636c;
+  --cyan:#6fd6e8; --violet:#8a7cf0; --blue:#5b8cff;
+  --danger:#ff5c5c; --success:#4ade80; --warn:#f5a524;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --r-sm:10px; --r-md:16px; --r-lg:22px; --r-xl:28px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter Tight',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit;font-size:15px;color:var(--text);background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;width:100%;outline:none;transition:border-color .2s}
+input:focus,textarea:focus,select:focus{border-color:rgba(111,214,232,.4)}
+textarea{resize:vertical;min-height:80px;font-family:inherit}
+select{cursor:pointer}
+option{background:#0d0f14;color:#e9eaee}
+
+/* AMBIENT */
+.ambient{position:fixed;inset:-20%;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(60% 40% at 30% 20%, rgba(111,214,232,.06), transparent 70%),
+    radial-gradient(50% 40% at 75% 65%, rgba(138,124,240,.05), transparent 70%),
+    radial-gradient(40% 30% at 50% 100%, rgba(91,140,255,.04), transparent 70%);
+  filter:blur(60px);
+  animation:drift 24s ease-in-out infinite alternate;
+}
+@keyframes drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(14px,-10px,0)}}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.035;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* LAYOUT */
+.wrap{max-width:1120px;margin:0 auto;padding:0 clamp(20px,5vw,32px)}
+.label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.section{padding:clamp(64px,10vw,120px) 0;position:relative}
+.section-head{display:flex;flex-direction:column;gap:10px;margin-bottom:clamp(28px,4vw,48px)}
+.section-head h2{font-size:clamp(1.5rem,4.5vw,2.2rem);font-weight:500;letter-spacing:-.02em;line-height:1.15}
+.section-head p{color:var(--muted);font-size:15px;max-width:520px;line-height:1.6}
+
+/* NAV */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 0;
+  background:rgba(8,9,12,.6);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid transparent;transition:border-color .3s,background .3s}
+.nav.scrolled{border-bottom-color:var(--border);background:rgba(8,9,12,.85)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between}
+.brand{font-weight:500;letter-spacing:.24em;font-size:13px}
+.nav-links{display:flex;gap:32px;align-items:center}
+.nav-links a{font-size:14px;color:var(--muted);transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.menu-btn{display:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--border);align-items:center;justify-content:center;position:relative}
+.menu-btn span,.menu-btn span::before,.menu-btn span::after{display:block;width:16px;height:1.5px;background:var(--text);position:absolute;left:50%;transform:translateX(-50%)}
+.menu-btn span{top:50%;margin-top:-0.75px}
+.menu-btn span::before{content:'';top:-5px}
+.menu-btn span::after{content:'';top:5px}
+@media(max-width:720px){.nav-links{display:none}.menu-btn{display:flex}}
+
+.mobile-menu{position:fixed;inset:0;z-index:99;background:rgba(8,9,12,.97);backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;justify-content:center;align-items:center;gap:32px;
+  opacity:0;pointer-events:none;transition:opacity .35s var(--ease)}
+.mobile-menu.open{opacity:1;pointer-events:auto}
+.mobile-menu a{font-size:28px;font-weight:400;letter-spacing:-.01em;color:var(--text)}
+
+/* HERO */
+.hero{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:100px 24px 60px;position:relative}
+.portrait{width:clamp(140px,42vw,180px);height:clamp(140px,42vw,180px);border-radius:36%;
+  position:relative;overflow:hidden;isolation:isolate;
+  background:linear-gradient(180deg,#12141a,#0a0b0f);
+  box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 60px rgba(111,214,232,.08),0 30px 60px rgba(0,0,0,.6);
+  opacity:0;transform:scale(.94);
+  animation:portraitIn 900ms var(--ease) 100ms forwards;
+}
+.portrait img{width:100%;height:100%;object-fit:cover}
+.portrait::after{content:'';position:absolute;inset:0;border-radius:inherit;
+  background:radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,.18), transparent 60%);
+  mix-blend-mode:overlay;pointer-events:none}
+.sheen{position:absolute;top:0;left:-60%;width:60%;height:100%;
+  background:linear-gradient(105deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%);
+  transform:skewX(-18deg);animation:sheen 1100ms var(--ease) 500ms forwards;opacity:0;pointer-events:none}
+@keyframes sheen{0%{left:-60%;opacity:0}30%{opacity:1}100%{left:120%;opacity:0}}
+@keyframes portraitIn{to{opacity:1;transform:scale(1)}}
+
+.hero h1{font-size:clamp(1.6rem,5.5vw,2.2rem);font-weight:500;letter-spacing:.02em;margin-top:26px;
+  opacity:0;transform:translateY(12px);animation:up 600ms var(--ease) 350ms forwards}
+.hero .role{opacity:0;transform:translateY(10px);animation:up 600ms var(--ease) 480ms forwards;margin-top:6px}
+.hero .headline{font-size:clamp(1.8rem,6.5vw,3rem);font-weight:500;letter-spacing:-.03em;line-height:1.15;
+  margin-top:22px;max-width:680px;
+  opacity:0;transform:translateY(14px);animation:up 700ms var(--ease) 620ms forwards}
+.hero .tags{margin-top:18px;color:var(--muted);font-size:14px;letter-spacing:.02em;
+  opacity:0;transform:translateY(10px);animation:up 600ms var(--ease) 780ms forwards}
+.hero .ctas{display:flex;gap:12px;margin-top:34px;flex-wrap:wrap;justify-content:center;
+  opacity:0;transform:translateY(10px);animation:up 600ms var(--ease) 920ms forwards}
+@keyframes up{to{opacity:1;transform:translateY(0)}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:100px;
+  font-size:14px;font-weight:500;letter-spacing:.01em;transition:all .25s var(--ease);white-space:nowrap;min-height:46px}
+.btn-primary{background:var(--text);color:#08090c}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(255,255,255,.12)}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border-2)}
+.btn-ghost:hover{background:var(--surface);border-color:rgba(255,255,255,.24)}
+.btn-sm{padding:9px 16px;font-size:13px;min-height:38px}
+.btn-danger{background:rgba(255,92,92,.12);color:var(--danger);border:1px solid rgba(255,92,92,.3)}
+.btn-danger:hover{background:rgba(255,92,92,.2)}
+.btn-full{width:100%}
+
+.scroll-hint{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
+  font-size:10px;letter-spacing:.24em;color:var(--muted-2);text-transform:uppercase;
+  opacity:0;animation:fadeIn 1s 1.4s forwards}
+.scroll-hint::after{content:'';display:block;width:1px;height:32px;margin:10px auto 0;
+  background:linear-gradient(180deg,var(--muted-2),transparent)}
+@keyframes fadeIn{to{opacity:1}}
+
+/* PORTFOLIO */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.chip{padding:8px 16px;border-radius:100px;font-size:13px;color:var(--muted);
+  border:1px solid var(--border);background:transparent;transition:all .2s;white-space:nowrap}
+.chip:hover{color:var(--text);border-color:var(--border-2)}
+.chip.active{background:var(--text);color:#08090c;border-color:var(--text)}
+.grid{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:720px){.grid{grid-template-columns:1.15fr .85fr;gap:22px}}
+
+.pcard{border-radius:var(--r-md);overflow:hidden;background:var(--surface);border:1px solid var(--border);
+  transition:transform .3s var(--ease),border-color .3s,box-shadow .3s;position:relative;display:block;cursor:pointer}
+.pcard:hover{transform:translateY(-4px);border-color:var(--border-2);box-shadow:0 24px 50px rgba(0,0,0,.5)}
+.thumb{position:relative;aspect-ratio:4/5;overflow:hidden;background:#0a0b0f}
+@media(min-width:720px){.thumb{aspect-ratio:16/10}}
+.thumb img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--ease);opacity:.85}
+.pcard:hover .thumb img{transform:scale(1.03);opacity:1}
+.thumb::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.7));opacity:.7;transition:opacity .3s}
+.pcard:hover .thumb::after{opacity:.9}
+.play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.9);
+  width:54px;height:54px;border-radius:50%;
+  background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.25);
+  display:flex;align-items:center;justify-content:center;transition:all .3s var(--ease);z-index:2}
+.play svg{width:18px;height:18px;fill:#fff;margin-left:3px}
+.pcard:hover .play{transform:translate(-50%,-50%) scale(1);background:rgba(255,255,255,.2)}
+.pmeta{padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pmeta h3{font-size:15px;font-weight:500;letter-spacing:-.01em}
+.pmeta .cat{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.empty{padding:60px 20px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:var(--r-md);grid-column:1/-1}
+
+/* SERVICES */
+.services{display:grid;grid-template-columns:1fr;gap:1px;background:var(--border);border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border)}
+@media(min-width:640px){.services{grid-template-columns:1fr 1fr}}
+.svc{background:var(--bg-2);padding:26px 24px;transition:background .25s}
+.svc:hover{background:#11131a}
+.svc .num{font-size:11px;letter-spacing:.2em;color:var(--muted-2)}
+.svc h3{font-size:17px;font-weight:500;margin-top:14px;letter-spacing:-.01em}
+.svc p{font-size:14px;color:var(--muted);margin-top:6px;line-height:1.5}
+
+/* WHY */
+.why{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:640px){.why{grid-template-columns:repeat(2,1fr)}}
+.why-item{display:flex;gap:14px;padding:20px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface)}
+.why-dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);margin-top:8px;flex-shrink:0;box-shadow:0 0 12px var(--cyan)}
+.why-item h4{font-size:15px;font-weight:500}
+.why-item p{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
+
+/* CTA */
+.cta-wrap{position:relative;border-radius:var(--r-xl);padding:clamp(40px,7vw,72px) clamp(24px,5vw,56px);
+  background:linear-gradient(160deg,rgba(111,214,232,.06),rgba(138,124,240,.04));
+  border:1px solid var(--border);overflow:hidden;text-align:center}
+.cta-wrap::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(60% 80% at 50% 0%, rgba(111,214,232,.12), transparent 70%);pointer-events:none}
+.cta-wrap h2{font-size:clamp(1.6rem,5.5vw,2.6rem);font-weight:500;letter-spacing:-.03em;line-height:1.15;position:relative}
+.cta-wrap p{color:var(--muted);margin-top:14px;font-size:15px;position:relative}
+.cta-wrap .btn{margin-top:28px;position:relative}
+.cta-wrap .label{position:relative}
+
+/* FOOTER */
+footer{padding:40px 0 60px;border-top:1px solid var(--border);margin-top:60px}
+.foot{display:flex;flex-direction:column;gap:16px;align-items:center;text-align:center}
+@media(min-width:640px){.foot{flex-direction:row;justify-content:space-between;text-align:left}}
+.foot-links{display:flex;gap:22px}
+.foot-links a{font-size:13px;color:var(--muted)}
+.foot-links a:hover{color:var(--text)}
+.copy{font-size:12px;color:var(--muted-2)}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;z-index:200;background:rgba(4,5,7,.94);backdrop-filter:blur(20px);
+  display:flex;align-items:center;justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .3s}
+.modal-bg.open{opacity:1;pointer-events:auto}
+.modal{width:100%;max-width:900px;transform:scale(.96);transition:transform .35s var(--ease)}
+.modal-bg.open .modal{transform:scale(1)}
+.modal video{width:100%;aspect-ratio:16/9;border-radius:var(--r-md);background:#000;display:block}
+.modal .info{margin-top:20px;display:flex;flex-direction:column;gap:8px}
+.modal .info h2{font-size:22px;font-weight:500;letter-spacing:-.02em}
+.modal .info p{color:var(--muted);font-size:14px;line-height:1.6;max-width:640px}
+.close-btn{position:absolute;top:20px;right:20px;width:40px;height:40px;border-radius:50%;
+  background:rgba(255,255,255,.06);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--text);z-index:2}
+
+/* CLIENT PORTAL */
+.portal{min-height:100vh;padding:32px 0 calc(60px + env(safe-area-inset-bottom))}
+.portal-head{padding:20px 0 24px;position:relative}
+.portal-head h1{font-size:clamp(1.5rem,5vw,2rem);font-weight:500;letter-spacing:-.02em;margin-top:8px}
+.bal-card{border-radius:var(--r-lg);padding:22px;background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  border:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:16px;position:relative;overflow:hidden}
+.bal-card::before{content:'';position:absolute;inset:0;background:radial-gradient(60% 100% at 0% 0%, rgba(111,214,232,.08), transparent 60%);pointer-events:none}
+.bal-item{position:relative}
+.bal-item .label{margin-bottom:8px}
+.bal-item .amt{font-size:clamp(1.4rem,5vw,1.9rem);font-weight:500;letter-spacing:-.02em}
+.amt.red{color:var(--danger)}
+.amt.green{color:var(--success)}
+
+.proj-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.proj{display:flex;align-items:center;gap:14px;padding:16px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border);transition:all .25s;flex-wrap:wrap}
+.proj:hover{border-color:var(--border-2);background:var(--surface-2)}
+.proj .thumb-sm{width:56px;height:56px;border-radius:10px;overflow:hidden;background:#0a0b0f;flex-shrink:0}
+.proj .thumb-sm img{width:100%;height:100%;object-fit:cover}
+.proj .info{flex:1;min-width:140px}
+.proj .info h4{font-size:14px;font-weight:500}
+.proj .info .sub{font-size:12px;color:var(--muted);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.proj .info .sub .date{color:var(--muted-2)}
+.status{font-size:11px;padding:3px 9px;border-radius:100px;letter-spacing:.08em;text-transform:uppercase;font-weight:500}
+.s-ready{background:rgba(74,222,128,.12);color:var(--success)}
+.s-editing{background:rgba(245,165,36,.12);color:var(--warn)}
+.s-paid{background:rgba(74,222,128,.12);color:var(--success)}
+.s-pending{background:rgba(255,92,92,.12);color:var(--danger)}
+.price{font-weight:500;font-size:14px}
+
+.pay-box{margin-top:24px;padding:20px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border)}
+.pay-box h3{font-size:15px;font-weight:500;margin-bottom:14px}
+.upi-row{display:flex;gap:8px;align-items:center;background:rgba(0,0,0,.3);padding:10px 14px;border-radius:10px;border:1px solid var(--border);margin:12px 0;font-size:14px}
+.upi-row code{flex:1;font-family:'Inter Tight',monospace;letter-spacing:.02em;color:var(--text)}
+.qr{width:140px;height:140px;border-radius:10px;background:#fff;padding:8px;margin:12px 0}
+.qr img{width:100%;height:100%}
+
+.chat{margin-top:24px;padding:20px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border)}
+.chat h3{font-size:15px;font-weight:500;margin-bottom:14px}
+.chat-log{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;margin-bottom:12px}
+.msg{padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.4;max-width:80%;word-wrap:break-word}
+.msg.me{align-self:flex-end;background:rgba(111,214,232,.12);border:1px solid rgba(111,214,232,.2)}
+.msg.them{align-self:flex-start;background:rgba(255,255,255,.04);border:1px solid var(--border)}
+.chat-input{display:flex;gap:8px}
+.chat-input input{flex:1}
+.emoji-panel{position:absolute;bottom:calc(100% + 6px);left:0;z-index:50;display:grid;
+  grid-template-columns:repeat(6,1fr);gap:4px;padding:10px;border-radius:10px;
+  background:var(--bg-2);border:1px solid var(--border);box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.emoji-panel span{cursor:pointer;font-size:20px;text-align:center;border-radius:6px;padding:4px}
+.emoji-panel span:hover{background:var(--surface-2)}
+
+/* ADMIN */
+.admin-shell{display:flex;min-height:100vh;padding-top:70px}
+.admin-nav{width:220px;flex-shrink:0;border-right:1px solid var(--border);padding:24px 16px;position:fixed;top:70px;bottom:0;left:0;overflow-y:auto;background:var(--bg-2)}
+.admin-nav a{display:block;padding:10px 14px;border-radius:10px;font-size:14px;color:var(--muted);margin-bottom:2px;transition:all .2s;cursor:pointer}
+.admin-nav a:hover{color:var(--text);background:var(--surface)}
+.admin-nav a.active{color:var(--text);background:var(--surface-2)}
+.admin-main{margin-left:220px;flex:1;padding:32px clamp(20px,4vw,48px);min-width:0}
+@media(max-width:820px){
+  .admin-nav{position:static;width:100%;border-right:0;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:12px 16px;gap:4px;top:0}
+  .admin-nav a{white-space:nowrap;padding:8px 14px;margin-bottom:0}
+  .admin-main{margin-left:0;padding:24px 20px}
+  .admin-shell{flex-direction:column;padding-top:70px}
+}
+.admin-header{margin-bottom:32px}
+.admin-header h1{font-size:clamp(1.4rem,3vw,1.8rem);font-weight:500;letter-spacing:-.02em}
+.admin-header p{color:var(--muted);font-size:14px;margin-top:6px}
+
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:28px}
+@media(min-width:640px){.stat-grid{grid-template-columns:repeat(5,1fr)}}
+.stat{padding:18px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border)}
+.stat .label{margin-bottom:8px}
+.stat .num{font-size:24px;font-weight:500;letter-spacing:-.02em}
+.stat .num.red{color:var(--danger)}
+.stat .num.green{color:var(--success)}
+
+.card{padding:22px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--border);margin-bottom:20px}
+.card h2{font-size:16px;font-weight:500;margin-bottom:16px;letter-spacing:-.01em}
+.form-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:640px){.form-grid{grid-template-columns:1fr 1fr}}
+.form-grid .full{grid-column:1/-1}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.toggle{display:flex;align-items:center;gap:10px;font-size:14px}
+.toggle input{width:auto}
+.row-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--border)}
+th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:500}
+tr:hover td{background:rgba(255,255,255,.02)}
+.table-wrap{overflow-x:auto;border-radius:var(--r-md);border:1px solid var(--border)}
+
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{width:100%;max-width:380px;padding:36px 28px;border-radius:var(--r-lg);
+  background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  border:1px solid var(--border);text-align:center}
+.login-card h1{font-size:22px;font-weight:500;letter-spacing:-.02em;margin-bottom:6px}
+.login-card p{font-size:13px;color:var(--muted);margin-bottom:24px}
+.login-card .label{margin-bottom:14px}
+
+.photo-preview{width:100px;height:100px;border-radius:24%;object-fit:cover;border:1px solid var(--border);margin-top:8px}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  padding:12px 22px;border-radius:100px;background:rgba(20,22,28,.95);backdrop-filter:blur(10px);
+  border:1px solid var(--border-2);font-size:14px;z-index:999;opacity:0;transition:all .3s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+
+/* ADMIN SECTION TOGGLE */
+.admin-section-block{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}
+.admin-section-block:first-of-type{border-top:none;padding-top:0;margin-top:0}
+
+/* WALLET BADGE */
+.wallet-badge{position:static;display:inline-flex;align-items:center;gap:8px;margin-top:14px;
+  padding:10px 16px;border-radius:100px;border:1px solid var(--border-2);cursor:pointer;
+  background:rgba(255,255,255,.04);transition:all .2s var(--ease);font-weight:500;font-size:14px;
+  white-space:nowrap;max-width:100%}
+.wallet-badge:hover{background:rgba(255,255,255,.08);transform:translateY(-1px)}
+.wallet-badge.w-pending{color:var(--danger);border-color:rgba(255,92,92,.3);background:rgba(255,92,92,.08)}
+.wallet-badge.w-advance{color:var(--success);border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.08)}
+.wallet-badge.w-zero{color:var(--muted)}
+.wallet-badge svg{width:14px;height:14px;flex-shrink:0}
+
+/* PAY SHEET (reuses modal-bg) */
+.pay-sheet{width:100%;max-width:420px;background:var(--bg-2);border:1px solid var(--border);
+  border-radius:var(--r-lg);padding:26px;transform:scale(.96);transition:transform .35s var(--ease)}
+.modal-bg.open .pay-sheet{transform:scale(1)}
+.pay-sheet h3{font-size:18px;font-weight:500;margin-bottom:4px}
+.pay-sheet .sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+
+/* PROJECT PAY BTN */
+.proj-pay{margin-left:auto}
+
+/* PAYMENT HISTORY */
+.payhist{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.payhist-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r-md);
+  background:var(--surface);border:1px solid var(--border)}
+.payhist-item .shot{width:44px;height:44px;border-radius:8px;overflow:hidden;background:#0a0b0f;flex-shrink:0;cursor:pointer;border:1px solid var(--border)}
+.payhist-item .shot img{width:100%;height:100%;object-fit:cover}
+.payhist-item .info{flex:1;min-width:0}
+.payhist-item .info .top{display:flex;justify-content:space-between;gap:8px;font-size:14px;font-weight:500}
+.payhist-item .info .sub{font-size:12px;color:var(--muted);margin-top:3px}
+
+/* CONTACT ICONS */
+.contact-icons{display:flex;gap:10px;justify-content:center;margin-top:20px;position:relative}
+.c-icon{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border-2);background:rgba(255,255,255,.03);transition:all .25s var(--ease)}
+.c-icon:hover{background:var(--surface-2);transform:translateY(-2px)}
+.c-icon svg{width:18px;height:18px}
+.foot-icons{display:flex;gap:14px;align-items:center}
+.foot-icons .c-icon{width:34px;height:34px}
+.foot-icons .c-icon svg{width:15px;height:15px}
+
+/* WHATSAPP-STYLE CLIENT LIST */
+.wa-list{display:flex;flex-direction:column;gap:1px;background:var(--border);border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border)}
+.wa-item{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--bg-2);cursor:pointer;transition:background .15s}
+.wa-item:hover{background:#11131a}
+.wa-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(160deg,rgba(111,214,232,.25),rgba(138,124,240,.2));
+  display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;flex-shrink:0}
+.wa-info{flex:1;min-width:0}
+.wa-info .top{display:flex;justify-content:space-between;gap:8px}
+.wa-info h4{font-size:15px;font-weight:500}
+.wa-info .time{font-size:11px;color:var(--muted-2);white-space:nowrap}
+.wa-info .preview{font-size:13px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);flex-shrink:0}
+
+/* CLIENT DETAIL (admin) */
+.cd-back{margin-bottom:18px}
+.cd-head{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+.cd-head .wa-avatar{width:56px;height:56px;font-size:20px}
+.cd-head h1{font-size:22px;font-weight:500}
+.cd-head .link{font-size:12px;color:var(--muted);margin-top:4px}
+.cd-tabs{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.cd-tab{padding:8px 16px;border-radius:100px;font-size:13px;border:1px solid var(--border);color:var(--muted)}
+.cd-tab.active{background:var(--text);color:#08090c;border-color:var(--text)}
+
+/* FLOATING CHAT */
+.chat-fab{position:fixed;top:18px;right:18px;z-index:150;width:44px;height:44px;border-radius:50%;
+  background:var(--bg-2);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;
+  font-size:20px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.chat-fab-dot{position:absolute;top:6px;right:6px;width:10px;height:10px;border-radius:50%;background:var(--danger);border:2px solid var(--bg-2)}
+.float-chat{position:fixed;top:70px;right:18px;z-index:150;width:min(340px,90vw);max-height:70vh;
+  background:var(--bg-2);border:1px solid var(--border);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.5);
+  display:flex;flex-direction:column;overflow:hidden}
+.float-chat-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)}
+.float-chat-head button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer}
+.float-chat .chat-log{flex:1;overflow-y:auto;padding:12px;max-height:340px}
+.float-chat .chat-input{padding:10px;border-top:1px solid var(--border)}
+.float-list{overflow-y:auto;max-height:400px}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  .ambient{animation:none}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="grain"></div>
+<div class="toast" id="toast"></div>
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a href="#/" class="brand" id="nav-brand">ASHISH</a>
+    <div class="nav-links" id="navLinks"></div>
+    <button class="menu-btn" id="menuBtn" aria-label="Menu"><span></span></button>
+  </div>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu"></div>
+
+<!-- PUBLIC -->
+<main id="publicSite" style="display:none">
+
+  <section class="hero">
+    <div class="portrait">
+      <img id="heroPhoto" src="" alt="Ashish"/>
+      <div class="sheen"></div>
+    </div>
+    <h1 id="heroName">Ashish</h1>
+    <div class="label role" id="heroRole">VIDEO EDITOR</div>
+    <h2 class="headline" id="heroHeadline"></h2>
+    <p class="tags" id="heroTags"></p>
+    <div class="ctas" id="heroCtas"></div>
+    <div class="scroll-hint" id="scrollHint">Scroll</div>
+  </section>
+
+  <section class="section" id="work">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="label" id="workLabel">Selected Work</div>
+        <h2 id="workHeadline">A selection of my recent edits.</h2>
+        <p id="workSub"></p>
+      </div>
+      <div class="filters reveal" id="filters"></div>
+      <div class="grid" id="portfolioGrid"></div>
+    </div>
+  </section>
+
+  <section class="section" id="services">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="label" id="svcLabel">What I Edit</div>
+        <h2 id="svcHeadline">Editing that respects your story.</h2>
+        <p id="svcSub"></p>
+      </div>
+      <div class="services reveal" id="servicesGrid"></div>
+    </div>
+  </section>
+
+  <section class="section" id="why">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <div class="label" id="whyLabel">Why Work With Me</div>
+        <h2 id="whyHeadline">Simple process. Serious output.</h2>
+        <p id="whySub"></p>
+      </div>
+      <div class="why reveal" id="whyGrid"></div>
+    </div>
+  </section>
+
+  <section class="section" id="contact">
+    <div class="wrap">
+      <div class="cta-wrap reveal">
+        <div class="label" id="ctaLabel">Let's Talk</div>
+        <h2 id="ctaHeadline" style="margin-top:14px"></h2>
+        <p id="ctaSub"></p>
+        <a href="#" class="btn btn-primary" id="contactBtn">Contact Ashish</a>
+        <div class="contact-icons" id="contactIcons"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap foot">
+      <div class="brand" style="font-size:12px" id="footBrand">ASHISH</div>
+      <div class="foot-links" id="footLinks"></div>
+      <div class="foot-icons" id="footIcons"></div>
+      <div class="copy">© <span id="year"></span> <span id="footName">Ashish</span>. All rights reserved.</div>
+    </div>
+  </footer>
+</main>
+
+<!-- CLIENT -->
+<main id="clientSite" style="display:none">
+  <div class="portal">
+    <div class="wrap" id="clientWrap"></div>
+  </div>
+</main>
+
+<!-- LOGIN -->
+<main id="loginSite" style="display:none">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="label">Admin Access</div>
+      <h1>Sign In</h1>
+      <p>Restricted area. Authorized personnel only.</p>
+      <div class="form-grid">
+        <div class="field full"><label>Admin ID</label><input type="text" id="adminId" placeholder="Admin ID" autocomplete="username"/></div>
+        <div class="field full"><label>Password</label><input type="password" id="adminPw" placeholder="Password" autocomplete="current-password"/></div>
+        <div class="field full"><button class="btn btn-primary btn-full" onclick="adminLogin()">Sign In</button></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ADMIN -->
+<main id="adminSite" style="display:none">
+  <div class="admin-shell">
+    <button class="chat-fab" onclick="toggleAdminFloatChat()">💬<span class="chat-fab-dot" id="adminChatFabDot" style="display:none"></span></button>
+    <div class="float-chat" id="adminFloatChatPanel" style="display:none">
+      <div class="float-chat-head"><strong>Chats</strong><button onclick="toggleAdminFloatChat()">×</button></div>
+      <div class="float-list" id="adminFloatChatList"></div>
+    </div>
+    <aside class="admin-nav" id="adminNav"></aside>
+    <div class="admin-main" id="adminMain"></div>
+  </div>
+</main>
+
+<!-- VIDEO MODAL -->
+<div class="modal-bg" id="videoModal">
+  <button class="close-btn" onclick="closeVideo()">×</button>
+  <div class="modal">
+    <div id="videoFrame"></div>
+    <div class="info">
+      <h2 id="vTitle"></h2>
+      <div class="label" id="vCat"></div>
+      <p id="vDesc"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STORAGE
+============================================================ */
+const DB = {
+  get(k, fb){ try{ const v = localStorage.getItem('ashish_'+k); return v ? JSON.parse(v) : fb; }catch(e){ return fb; } },
+  set(k, v){ try{ localStorage.setItem('ashish_'+k, JSON.stringify(v)); }catch(e){ toast('Storage full — try smaller image'); } }
+};
+
+/* ============================================================
+   DEFAULTS
+============================================================ */
+const defaultProfile = {
+  name:"Ashish", role:"VIDEO EDITOR",
+  photo:"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80&auto=format&fit=crop",
+  email:"hello@ashish.studio", telegram:"@ashish", whatsapp:"", bio:"", upi:"ashish@upi"
+};
+
+const defaultContent = {
+  nav: [
+    {label:"Work", href:"#work"},
+    {label:"Services", href:"#services"},
+    {label:"Contact", href:"#contact"}
+  ],
+  hero: {
+    headline:"I edit stories that\npeople remember.",
+    tags:"Short-form • Reels • YouTube • Cinematic Editing",
+    primaryCtaText:"View My Work", primaryCtaHref:"#work",
+    secondaryCtaText:"Contact Me", secondaryCtaHref:"#contact",
+    scrollHint:"Scroll"
+  },
+  work: {
+    label:"Selected Work",
+    headline:"A selection of my recent edits.",
+    sub:"Short-form reels, YouTube edits, and cinematic cuts built for retention."
+  },
+  services: {
+    label:"What I Edit",
+    headline:"Editing that respects your story.",
+    sub:"",
+    items:[
+      {title:"Short-form", desc:"Reels & Shorts engineered for the first 3 seconds."},
+      {title:"YouTube", desc:"Long-form content with tight pacing and clean structure."},
+      {title:"Cinematic", desc:"Story-driven edits with color, sound and rhythm."},
+      {title:"Social Media", desc:"High-retention content for consistent growth."}
+    ]
+  },
+  why: {
+    label:"Why Work With Me",
+    headline:"Simple process. Serious output.",
+    sub:"",
+    items:[
+      {title:"Clean Editing", desc:"No over-styling. Just cuts that serve the story."},
+      {title:"Fast Delivery", desc:"Clear timelines. No chasing. No surprises."},
+      {title:"Attention to Detail", desc:"Sound design, pacing, color — all considered."},
+      {title:"Client-focused", desc:"Private portal for every client to track work & payments."}
+    ]
+  },
+  cta: {
+    label:"Let's Talk",
+    headline:"Have a video in mind?\nLet's turn it into something\nworth watching.",
+    sub:"Reach out and I'll get back within 24 hours.",
+    buttonText:"Contact Ashish"
+  },
+  footer: {
+    links:[
+      {label:"Work", href:"#work"},
+      {label:"Services", href:"#services"},
+      {label:"Contact", href:"#contact"}
+    ],
+    copyright:"All rights reserved."
+  }
+};
+
+const defaultPortfolio = [
+  {id:'p1', title:"Birthday Reel", category:"Reels", featured:true, order:1,
+   thumb:"https://images.unsplash.com/photo-1519741497674-611481863552?w=800&q=80&auto=format&fit=crop",
+   url:"https://www.w3schools.com/html/mov_bbb.mp4",
+   desc:"A short-form birthday edit with clean pacing and warm color."},
+  {id:'p2', title:"YouTube Edit #12", category:"YouTube", featured:true, order:2,
+   thumb:"https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=800&q=80&auto=format&fit=crop",
+   url:"https://www.w3schools.com/html/mov_bbb.mp4",
+   desc:"Long-form talking head with b-roll and motion graphics."},
+  {id:'p3', title:"Cinematic Cut", category:"Cinematic", featured:true, order:3,
+   thumb:"https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&q=80&auto=format&fit=crop",
+   url:"https://www.w3schools.com/html/mov_bbb.mp4",
+   desc:"Story-driven cinematic edit with custom sound design."},
+  {id:'p4', title:"Product Ad 30s", category:"Ads", featured:false, order:4,
+   thumb:"https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80&auto=format&fit=crop",
+   url:"https://www.w3schools.com/html/mov_bbb.mp4",
+   desc:"Direct-response ad cutdown for social."}
+];
+
+const defaultClients = [
+  {id:'c1', token:'rahul-demo', name:"Rahul", greet:"Good evening",
+   videos:[
+     {id:'v1', title:"Birthday Reel #03", status:"ready", price:150, paid:150, thumb:"https://images.unsplash.com/photo-1519741497674-611481863552?w=400&q=70&auto=format&fit=crop"},
+     {id:'v2', title:"YouTube Edit #12", status:"editing", price:500, paid:0, thumb:"https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&q=70&auto=format&fit=crop"},
+     {id:'v3', title:"Reel #07", status:"ready", price:150, paid:0, thumb:"https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&q=70&auto=format&fit=crop"}
+   ],
+   advance:0,
+   messages:[
+     {from:'client', text:"Hi Ashish, when will edit #12 be ready?", ts:Date.now()-3600000},
+     {from:'admin', text:"Working on it, will share by tomorrow evening.", ts:Date.now()-3000000}
+   ],
+   views:42, uniques:9
+  }
+];
+
+let state = {
+  profile: DB.get('profile', defaultProfile),
+  content: DB.get('content', defaultContent),
+  portfolio: DB.get('portfolio', defaultPortfolio),
+  clients: DB.get('clients', defaultClients),
+  payments: DB.get('payments', [])
+};
+
+function save(){
+  DB.set('profile', state.profile);
+  DB.set('content', state.content);
+  DB.set('portfolio', state.portfolio);
+  DB.set('clients', state.clients);
+  DB.set('payments', state.payments);
+}
+
+function reloadStateFromStorage(){
+  state.profile = DB.get('profile', defaultProfile);
+  state.content = DB.get('content', defaultContent);
+  state.portfolio = DB.get('portfolio', defaultPortfolio);
+  state.clients = DB.get('clients', defaultClients);
+  state.payments = DB.get('payments', []);
+}
+
+// Same-browser cross-tab instant sync: fires in OTHER tabs of the same
+// browser whenever localStorage changes here (e.g. admin tab + client tab
+// open together) - no backend needed for this case.
+window.addEventListener('storage', (e)=>{
+  if(!e.key || !e.key.startsWith('ashish_')) return;
+  reloadStateFromStorage();
+  const hash = location.hash.replace('#','') || '/';
+  const parts = hash.split('/').filter(Boolean);
+  if(parts[0]==='c' && parts[1]){
+    const c = state.clients.find(x=>x.token===parts[1]);
+    if(c) renderChat(c);
+  } else if(parts[0]==='admin' && localStorage.getItem('ashish_admin')==='1'){
+    renderAdmin();
+  }
+});
+
+/* ============================================================
+   ROUTER
+============================================================ */
+function route(){
+  const hash = location.hash.replace('#','') || '/';
+  const parts = hash.split('/').filter(Boolean);
+
+  if(!(parts[0]==='c' && parts[1])) stopChatPolling();
+
+  ['publicSite','clientSite','loginSite','adminSite'].forEach(id=>{
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('videoModal').classList.remove('open');
+  document.body.style.overflow = '';
+
+  if(parts[0] === 'c' && parts[1]){ showClient(parts[1]); return; }
+  if(parts[0] === 'admin'){
+    if(localStorage.getItem('ashish_admin') === '1'){
+      document.getElementById('adminSite').style.display = 'block';
+      renderAdmin();
+    } else {
+      document.getElementById('loginSite').style.display = 'block';
+    }
+    return;
+  }
+  document.getElementById('publicSite').style.display = 'block';
+  renderPublic();
+}
+
+/* ============================================================
+   PUBLIC RENDER
+============================================================ */
+function renderPublic(){
+  const p = state.profile, c = state.content;
+
+  document.title = p.name + ' — Video Editor';
+  document.getElementById('nav-brand').textContent = p.name.toUpperCase();
+
+  // nav links
+  document.getElementById('navLinks').innerHTML = c.nav.map(l=>`<a href="${l.href}">${l.label}</a>`).join('');
+  document.getElementById('mobileMenu').innerHTML = c.nav.map(l=>`<a href="${l.href}" data-close>${l.label}</a>`).join('');
+
+  // hero
+  document.getElementById('heroPhoto').src = p.photo;
+  document.getElementById('heroName').textContent = p.name;
+  document.getElementById('heroRole').textContent = p.role;
+  document.getElementById('heroHeadline').innerHTML = c.hero.headline.replace(/\n/g,'<br/>');
+  document.getElementById('heroTags').textContent = c.hero.tags;
+  document.getElementById('scrollHint').textContent = c.hero.scrollHint;
+  document.getElementById('heroCtas').innerHTML = `
+    <a href="${c.hero.primaryCtaHref}" class="btn btn-primary">${c.hero.primaryCtaText}</a>
+    <a href="${c.hero.secondaryCtaHref}" class="btn btn-ghost">${c.hero.secondaryCtaText}</a>
+  `;
+
+  // work
+  document.getElementById('workLabel').textContent = c.work.label;
+  document.getElementById('workHeadline').textContent = c.work.headline;
+  document.getElementById('workSub').textContent = c.work.sub;
+
+  // services
+  document.getElementById('svcLabel').textContent = c.services.label;
+  document.getElementById('svcHeadline').textContent = c.services.headline;
+  document.getElementById('svcSub').textContent = c.services.sub;
+  document.getElementById('servicesGrid').innerHTML = c.services.items.map((s,i)=>`
+    <div class="svc"><div class="num">${String(i+1).padStart(2,'0')}</div><h3>${escapeHtml(s.title)}</h3><p>${escapeHtml(s.desc)}</p></div>
+  `).join('');
+
+  // why
+  document.getElementById('whyLabel').textContent = c.why.label;
+  document.getElementById('whyHeadline').textContent = c.why.headline;
+  document.getElementById('whySub').textContent = c.why.sub;
+  document.getElementById('whyGrid').innerHTML = c.why.items.map(w=>`
+    <div class="why-item"><div class="why-dot"></div><div><h4>${escapeHtml(w.title)}</h4><p>${escapeHtml(w.desc)}</p></div></div>
+  `).join('');
+
+  // cta
+  document.getElementById('ctaLabel').textContent = c.cta.label;
+  document.getElementById('ctaHeadline').innerHTML = c.cta.headline.replace(/\n/g,'<br/>');
+  document.getElementById('ctaSub').textContent = c.cta.sub;
+  document.getElementById('contactBtn').textContent = c.cta.buttonText;
+  document.getElementById('contactBtn').href = 'mailto:'+p.email;
+
+  // contact icons
+  const iconsHtml = contactIconsHtml(p);
+  document.getElementById('contactIcons').innerHTML = iconsHtml;
+  document.getElementById('footIcons').innerHTML = iconsHtml;
+
+  // footer
+  document.getElementById('footBrand').textContent = p.name.toUpperCase();
+  document.getElementById('footLinks').innerHTML = c.footer.links.map(l=>`<a href="${l.href}">${l.label}</a>`).join('');
+  document.getElementById('year').textContent = new Date().getFullYear();
+  document.getElementById('footName').textContent = p.name;
+
+  renderFilters();
+  renderPortfolio('All');
+  attachReveal();
+
+  // bind mobile menu
+  document.querySelectorAll('#mobileMenu a').forEach(a=>{
+    a.addEventListener('click', ()=> document.getElementById('mobileMenu').classList.remove('open'));
+  });
+}
+
+function renderFilters(){
+  const cats = ['All', ...new Set(state.portfolio.map(v=>v.category))];
+  const el = document.getElementById('filters');
+  if(cats.length <= 2){ el.innerHTML=''; return; }
+  el.innerHTML = cats.map(c=>
+    `<button class="chip ${c==='All'?'active':''}" data-cat="${c}">${c}</button>`
+  ).join('');
+  el.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      el.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+      chip.classList.add('active');
+      renderPortfolio(chip.dataset.cat);
+    });
+  });
+}
+
+function renderPortfolio(cat){
+  let items = [...state.portfolio].sort((a,b)=>(a.order||0)-(b.order||0));
+  if(cat && cat !== 'All') items = items.filter(v=>v.category===cat);
+  const grid = document.getElementById('portfolioGrid');
+  if(items.length === 0){
+    grid.innerHTML = `<div class="empty">No videos yet.</div>`;
+    return;
+  }
+  grid.innerHTML = items.map(v=>`
+    <div class="pcard reveal" data-id="${v.id}">
+      <div class="thumb">
+        <img src="${v.thumb}" alt="${escapeHtml(v.title)}" loading="lazy"/>
+        <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+      </div>
+      <div class="pmeta">
+        <h3>${escapeHtml(v.title)}</h3>
+        <span class="cat">${escapeHtml(v.category)}</span>
+      </div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.pcard').forEach(card=>{
+    card.addEventListener('click', ()=>openVideo(card.dataset.id));
+  });
+  attachReveal();
+}
+
+/* ============================================================
+   REVEAL
+============================================================ */
+let revealObserver = null;
+function attachReveal(){
+  if(revealObserver) revealObserver.disconnect();
+  revealObserver = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){ e.target.classList.add('in'); revealObserver.unobserve(e.target); }
+    });
+  },{threshold:.1, rootMargin:'0px 0px -5% 0px'});
+  document.querySelectorAll('.reveal:not(.in)').forEach(el=>revealObserver.observe(el));
+}
+
+/* ============================================================
+   VIDEO MODAL
+============================================================ */
+function openVideo(id){
+  const v = state.portfolio.find(x=>x.id===id);
+  if(!v) return;
+  document.getElementById('vTitle').textContent = v.title;
+  document.getElementById('vCat').textContent = v.category;
+  document.getElementById('vDesc').textContent = v.desc || '';
+  document.getElementById('videoFrame').innerHTML = `
+    <video src="${v.url}" controls autoplay playsinline></video>
+  `;
+  document.getElementById('videoModal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeVideo(){
+  document.getElementById('videoModal').classList.remove('open');
+  document.getElementById('videoFrame').innerHTML = '';
+  document.body.style.overflow='';
+}
+
+/* ============================================================
+   CLIENT
+============================================================ */
+function showClient(token, isRefresh){
+  const c = state.clients.find(x=>x.token===token);
+  const wrap = document.getElementById('clientWrap');
+  document.getElementById('clientSite').style.display = 'block';
+
+  if(!c){
+    wrap.innerHTML = `<div style="padding:80px 0;text-align:center">
+      <div class="label">Invalid link</div>
+      <h1 style="margin-top:12px;font-size:24px">This link is not active.</h1>
+      <button class="btn btn-ghost" style="margin-top:24px" onclick="backToSite()">Back to website</button>
+    </div>`;
+    return;
+  }
+
+  const pending = c.videos.reduce((s,v)=> s + Math.max(0, v.price - v.paid), 0);
+  const advance = c.advance || 0;
+  const walletClass = pending>0 ? 'w-pending' : (advance>0 ? 'w-advance' : 'w-zero');
+  const walletText = pending>0 ? `-${money(pending)}` : (advance>0 ? `+${money(advance)}` : money(0));
+  const clientPayments = (state.payments||[]).filter(p=>p.clientId===c.id).slice().reverse();
+
+  wrap.innerHTML = `
+    <button class="chat-fab" onclick="toggleFloatChat('${c.id}')">💬<span class="chat-fab-dot" id="chatFabDot" style="display:none"></span></button>
+    <div class="float-chat" id="floatChatPanel" style="display:none">
+      <div class="float-chat-head"><strong>Message Ashish</strong><button onclick="toggleFloatChat('${c.id}')">×</button></div>
+      <div class="chat-log" id="floatChatLog"></div>
+      <div class="chat-input">
+        <button class="btn btn-ghost btn-sm" onclick="toggleEmojiPicker('floatChatInput')" type="button">😊</button>
+        <input type="text" id="floatChatInput" placeholder="Write a message..." onkeydown="if(event.key==='Enter')sendChat('${c.id}',true)"/>
+        <button class="btn btn-primary btn-sm" onclick="sendChat('${c.id}',true)">Send</button>
+      </div>
+    </div>
+    <div class="portal-head">
+      <div class="label">${escapeHtml(c.greet||'Hello')}</div>
+      <h1>${escapeHtml(c.name)}</h1>
+      <div class="wallet-badge ${walletClass}" onclick="openWalletPanel('${c.id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><circle cx="17" cy="14.5" r="1"/></svg>
+        Wallet · ${walletText}
+      </div>
+    </div>
+
+    <div style="margin-top:44px" class="reveal">
+      <div class="label" style="margin-bottom:6px">Your Projects</div>
+      <div class="proj-list">
+        ${c.videos.length===0 ? '<p style="color:var(--muted);font-size:14px;padding:20px 0">No projects yet.</p>' :
+          c.videos.slice().sort((a,b)=> videoSortTs(b) - videoSortTs(a)).map(v=>{
+            const due = Math.max(0, v.price - v.paid);
+            const paid = due<=0;
+            const statusClass = paid?'s-paid':(v.status==='ready'?'s-ready':v.status==='editing'?'s-editing':'s-pending');
+            const statusText = paid?'Paid ✓':(v.status.charAt(0).toUpperCase()+v.status.slice(1));
+            const watchable = !!(v.videoUrl || v.driveLink);
+            const dateLabel = v.readyDate ? formatNiceDate(v.readyDate) : '';
+            return `<div class="proj">
+              <div class="thumb-sm"><img src="${v.thumb}" alt=""/></div>
+              <div class="info">
+                <h4>${escapeHtml(v.title)}</h4>
+                <div class="sub">
+                  <span class="status ${statusClass}">${statusText}</span>
+                  <span class="price">${money(v.price)}</span>
+                  ${dateLabel ? `<span class="date">${dateLabel}</span>` : ''}
+                </div>
+              </div>
+              ${due>0 ? `<button class="btn btn-sm btn-primary proj-pay" onclick="openPaySheet('${c.id}','${v.id}')">Pay ${money(due)}</button>`
+                       : watchable ? `<button class="btn btn-sm btn-primary proj-pay" onclick="openClientVideo('${c.id}','${v.id}')">Watch</button>`
+                       : `<button class="btn btn-sm btn-ghost proj-pay" disabled style="opacity:.4;cursor:not-allowed">Not ready</button>`}
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+
+    <div class="pay-box reveal">
+      <h3>Payment History</h3>
+      <div class="payhist" id="payHistList">
+        ${clientPayments.length===0 ? '<p style="color:var(--muted);font-size:14px">No payments submitted yet.</p>' :
+          clientPayments.map(p=>`
+            <div class="payhist-item">
+              ${(p.screenshotUrl||p.screenshot||p.hasShot) ? `<div class="shot" onclick="event.stopPropagation();viewShotClient('${p.id}','${c.token}')">${p.screenshotUrl?`<img src="${p.screenshotUrl}" alt=""/>`:p.screenshot?`<img src="${p.screenshot}" alt=""/>`:'📷'}</div>` : `<div class="shot"></div>`}
+              <div class="info" style="cursor:pointer" onclick='showPaymentDetail(${JSON.stringify(p).replace(/'/g,"&apos;")})'>
+                <div class="top"><span>${money(p.amount)}</span><span class="status ${p.status==='approved'?'s-paid':p.status==='rejected'?'s-pending':'s-editing'}">${p.status}</span></div>
+                <div class="sub">${new Date(p.ts).toLocaleDateString()} ${p.note?'· '+escapeHtml(p.note):''}</div>
+              </div>
+            </div>
+          `).join('')}
+      </div>
+    </div>
+
+    <div class="chat reveal">
+      <h3>Message Ashish</h3>
+      <div class="chat-log" id="chatLog"></div>
+      <div class="chat-input" style="position:relative">
+        <button class="btn btn-ghost btn-sm" onclick="toggleEmojiPicker('chatInput')" type="button">😊</button>
+        <input type="text" id="chatInput" placeholder="Write a message..." onkeydown="if(event.key==='Enter')sendChat('${c.id}')"/>
+        <button class="btn btn-primary btn-sm" onclick="sendChat('${c.id}')">Send</button>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:36px">
+      <button class="btn btn-ghost btn-sm" onclick="backToSite()">← Back to website</button>
+    </div>
+  `;
+
+  renderChat(c);
+  attachReveal();
+  startChatPolling(c.id);
+
+  if(!isRefresh){
+    refreshClientLive(c.id).then(()=>showClient(token, true));
+    c.views = (c.views||0) + 1;
+    save();
+  }
+}
+
+function openClientVideo(clientId, videoId){
+  const c = state.clients.find(x=>x.id===clientId);
+  const v = c && c.videos.find(x=>x.id===videoId);
+  if(!v) return;
+  const downloadBtn = v.videoUrl
+    ? `<button class="btn btn-primary btn-full" style="margin-top:16px" onclick="forceDownload('${v.videoUrl}','${escapeAttr(v.title)}.mp4')">Download Original</button>`
+    : v.driveLink ? `<a class="btn btn-primary btn-full" style="margin-top:16px" href="${driveDownload(v.driveLink)}" target="_blank" rel="noopener">Download Original</a>`
+    : '';
+  const reviewBlock = v.review ? `
+        <div style="margin-top:14px;padding:14px;border-radius:10px;background:var(--surface);border:1px solid var(--border)">
+          <div style="color:#f5c518">${'★'.repeat(v.review.rating)}${'☆'.repeat(5-v.review.rating)}</div>
+          ${v.review.comment ? `<p style="font-size:13px;color:var(--muted);margin-top:6px">${escapeHtml(v.review.comment)}</p>` : ''}
+        </div>` : `
+        <div style="margin-top:14px">
+          <label style="font-size:13px;color:var(--muted)">Rate this edit (optional)</label>
+          <div id="starPicker" style="display:flex;gap:6px;font-size:26px;margin:8px 0;cursor:pointer">
+            ${[1,2,3,4,5].map(n=>`<span data-n="${n}" onclick="setStarRating(${n})" style="color:var(--border-2)">★</span>`).join('')}
+          </div>
+          <input type="hidden" id="reviewRating" value="0"/>
+          <textarea id="reviewComment" placeholder="Optional comment..." style="width:100%;min-height:60px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:inherit"></textarea>
+          <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="submitReview('${c.id}','${v.id}')">Submit Review</button>
+        </div>`;
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'cvBg';
+  bg.innerHTML = `
+    <div class="pay-sheet" style="max-width:560px">
+      <h3>${escapeHtml(v.title)}</h3>
+      <p class="sub">${v.readyDate ? formatNiceDate(v.readyDate) : ''}</p>
+      <div style="border-radius:12px;overflow:hidden;background:#000;aspect-ratio:16/9">
+        ${v.videoUrl ? `<video src="${v.videoUrl}" controls playsinline style="width:100%;height:100%;object-fit:contain;background:#000"></video>`
+          : v.driveLink ? `<iframe src="${drivePreview(v.driveLink)}" style="width:100%;height:100%;border:0" allow="autoplay"></iframe>`
+                       : '<div style="color:var(--muted);display:flex;align-items:center;justify-content:center;height:100%;font-size:13px">No preview available</div>'}
+      </div>
+      ${downloadBtn}
+      ${reviewBlock}
+      <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="document.getElementById('cvBg').remove()">Close</button>
+    </div>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+function setStarRating(n){
+  document.getElementById('reviewRating').value = n;
+  document.querySelectorAll('#starPicker span').forEach(s=>{
+    s.style.color = parseInt(s.dataset.n) <= n ? '#f5c518' : 'var(--border-2)';
+  });
+}
+function submitReview(clientId, videoId){
+  const rating = parseInt(document.getElementById('reviewRating').value);
+  if(!rating){ toast('Pick a star rating first'); return; }
+  const comment = document.getElementById('reviewComment').value.trim();
+  const c = state.clients.find(x=>x.id===clientId);
+  const v = c && c.videos.find(x=>x.id===videoId);
+  if(!v) return;
+  v.review = {rating, comment, ts:Date.now()};
+  save();
+  toast('Thanks for the review! ✓');
+  document.getElementById('cvBg').remove();
+  openClientVideo(clientId, videoId);
+  adminFetchOrClientSync(clientId, videoId, v.review);
+}
+function adminFetchOrClientSync(clientId, videoId, review){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  fetch(`${CLIENT_API}/${encodeURIComponent(c.token)}/review`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({videoId, review})
+  }).catch(()=>{});
+}
+function showPaymentDetail(p){
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.onclick = (e)=>{ if(e.target===bg) bg.remove(); };
+  bg.innerHTML = `
+    <div class="pay-sheet">
+      <h3>Payment Detail</h3>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="field"><label>Amount</label><input value="${money(p.amount)}" disabled/></div>
+        <div class="field"><label>Status</label><input value="${p.status}" disabled/></div>
+        <div class="field full"><label>Note</label><input value="${escapeAttr(p.note||'—')}" disabled/></div>
+        <div class="field full"><label>Submitted</label><input value="${new Date(p.ts).toLocaleString()}" disabled/></div>
+        ${p.decidedTs ? `<div class="field full"><label>${p.status==='approved'?'Approved':'Rejected'} On</label><input value="${new Date(p.decidedTs).toLocaleString()}" disabled/></div>` : ''}
+      </div>
+      <button class="btn btn-ghost btn-full" style="margin-top:14px" onclick="this.closest('.modal-bg').remove()">Close</button>
+    </div>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+
+function openWalletPanel(clientId){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const log = (c.walletLog||[]);
+  let running = 0;
+  const withBalance = log.map(t=>{
+    const before = running;
+    running += (t.type==='credit' ? t.amount : -t.amount);
+    return {...t, before, after: running};
+  });
+  const balance = c.advance || 0;
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'walletBg';
+  bg.innerHTML = `
+    <div class="pay-sheet">
+      <h3>Wallet</h3>
+      <p class="sub" style="font-size:22px;font-weight:600;color:${balance>0?'var(--success)':'var(--text)'}">${money(balance)}</p>
+      <button class="btn btn-primary btn-full" onclick="document.getElementById('walletBg').remove();openPaySheet('${c.id}')">Add Payment</button>
+      <div class="payhist" style="margin-top:16px;max-height:320px;overflow:auto">
+        ${withBalance.length===0 ? '<p style="color:var(--muted);font-size:13px">No transactions yet.</p>' :
+          withBalance.slice().reverse().map(t=>`
+            <div class="payhist-item" style="cursor:pointer" onclick='showWalletTxDetail(${JSON.stringify(t).replace(/'/g,"&apos;")})'>
+              <div class="info">
+                <div class="top">
+                  <span style="color:${t.type==='credit'?'var(--success)':'var(--danger)'}">${t.type==='credit'?'+':'-'}${money(t.amount)}</span>
+                  <span class="sub">${new Date(t.ts).toLocaleDateString()}</span>
+                </div>
+                <div class="sub">${escapeHtml(t.note)} · Balance: ${money(t.after)}</div>
+              </div>
+            </div>
+          `).join('')}
+      </div>
+      <button class="btn btn-ghost btn-full" style="margin-top:14px" onclick="document.getElementById('walletBg').remove()">Close</button>
+    </div>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+function showWalletTxDetail(t){
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.onclick = (e)=>{ if(e.target===bg) bg.remove(); };
+  bg.innerHTML = `
+    <div class="pay-sheet">
+      <h3>Transaction Detail</h3>
+      <div class="form-grid" style="margin-top:10px">
+        <div class="field full"><label>Note</label><input value="${escapeAttr(t.note)}" disabled/></div>
+        <div class="field"><label>Amount</label><input value="${t.type==='credit'?'+':'-'}${money(t.amount)}" disabled/></div>
+        <div class="field"><label>Date</label><input value="${new Date(t.ts).toLocaleString()}" disabled/></div>
+        <div class="field"><label>Balance Before</label><input value="${money(t.before)}" disabled/></div>
+        <div class="field"><label>Balance After</label><input value="${money(t.after)}" disabled/></div>
+      </div>
+      <button class="btn btn-ghost btn-full" style="margin-top:14px" onclick="this.closest('.modal-bg').remove()">Close</button>
+    </div>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+
+function openPaySheet(clientId, videoId){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const v = videoId ? c.videos.find(x=>x.id===videoId) : null;
+  const due = v ? Math.max(0, v.price - v.paid) : null;
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'paySheetBg';
+  bg.innerHTML = `
+    <div class="pay-sheet">
+      <h3>${v ? 'Pay for '+escapeHtml(v.title) : 'Add to Wallet'}</h3>
+      <p class="sub">Pay via UPI, then upload the screenshot for review.</p>
+      <div class="upi-row">
+        <code>${escapeHtml(state.profile.upi)}</code>
+        <button class="btn btn-sm btn-ghost" onclick="copyUPI()">Copy</button>
+      </div>
+      <div class="qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('upi://pay?pa='+state.profile.upi)}" alt="UPI QR"/></div>
+      <div class="form-grid">
+        <div class="field full"><label>Amount (₹)</label><input type="number" id="payAmount" value="${due||''}" placeholder="500"/></div>
+        <div class="field full"><label>Reference / Note</label><input type="text" id="payNote" placeholder="Optional"/></div>
+        <div class="field full"><label>Payment Screenshot (required)</label>
+          <input type="file" id="payScreenshot" accept="image/*" required
+            style="border:1px solid var(--danger);border-radius:8px"
+            onchange="this.style.border='1px solid var(--border)';document.getElementById('paySubmitBtn').disabled=!this.files.length;"/>
+        </div>
+        <div class="field full" style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-full" onclick="closePaySheet()">Cancel</button>
+          <button class="btn btn-primary btn-full" id="paySubmitBtn" disabled onclick="submitPayment('${c.id}','${videoId||''}')">Submit</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+function closePaySheet(){
+  const bg = document.getElementById('paySheetBg');
+  if(bg) bg.remove();
+}
+function showShotLightbox(src){
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.onclick = ()=>bg.remove();
+  bg.innerHTML = `<img src="${src}" style="max-width:90vw;max-height:85vh;border-radius:12px"/>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+async function viewShotClient(paymentId, clientToken){
+  const p = state.payments.find(x=>x.id===paymentId);
+  if(p && p.screenshot){ showShotLightbox(p.screenshot); return; }
+  try{
+    const res = await fetch(`/api/shot/${encodeURIComponent(paymentId)}?token=${encodeURIComponent(clientToken)}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error();
+    if(p) p.screenshot = data.screenshot;
+    showShotLightbox(data.screenshot);
+  }catch(e){ toast('Could not load screenshot'); }
+}
+async function viewShotAdmin(paymentId){
+  const p = state.payments.find(x=>x.id===paymentId);
+  if(p && p.screenshot){ showShotLightbox(p.screenshot); return; }
+  try{
+    const res = await adminFetch(`/api/shot/${encodeURIComponent(paymentId)}`);
+    const data = await res.json();
+    if(!data.ok) throw new Error();
+    if(p) p.screenshot = data.screenshot;
+    showShotLightbox(data.screenshot);
+  }catch(e){ toast('Could not load screenshot'); }
+}
+
+function renderChat(c){
+  const html = c.messages.length===0
+    ? '<p style="color:var(--muted);font-size:13px">No messages yet.</p>'
+    : c.messages.map(m=>`<div class="msg ${m.from==='client'?'me':'them'}">${escapeHtml(m.text)}</div>`).join('');
+  const log = document.getElementById('chatLog');
+  if(log){ log.innerHTML = html; log.scrollTop = log.scrollHeight; }
+  const floatLog = document.getElementById('floatChatLog');
+  if(floatLog){ floatLog.innerHTML = html; floatLog.scrollTop = floatLog.scrollHeight; }
+  updateChatFabDot(c);
+}
+function updateAdminChatFabDot(){
+  const dot = document.getElementById('adminChatFabDot');
+  if(!dot) return;
+  const hasUnread = state.clients.some(c=>{
+    const last = c.messages && c.messages[c.messages.length-1];
+    return last && last.from==='client' && last.ts > (c.adminLastSeenTs||0);
+  });
+  dot.style.display = hasUnread ? 'block' : 'none';
+}
+function toggleAdminFloatChat(){
+  const panel = document.getElementById('adminFloatChatPanel');
+  if(!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'flex';
+  if(!open) renderAdminFloatChatList();
+}
+function renderAdminFloatChatList(){
+  const list = document.getElementById('adminFloatChatList');
+  if(!list) return;
+  const sorted = state.clients.slice().sort((a,b)=>clientLastMsgTs(b)-clientLastMsgTs(a));
+  list.innerHTML = sorted.length===0 ? '<p style="padding:14px;color:var(--muted);font-size:13px">No clients yet.</p>' :
+    `<div class="wa-list">${sorted.map(c=>{
+      const last = c.messages && c.messages.length ? c.messages[c.messages.length-1] : null;
+      const unread = last && last.from==='client' && last.ts > (c.adminLastSeenTs||0);
+      return `<div class="wa-item" onclick="openClientFromFloatChat('${c.id}')">
+        <div class="wa-avatar">${clientInitials(c.name)}</div>
+        <div class="wa-info">
+          <div class="top"><h4>${escapeHtml(c.name)}</h4><span class="time">${last?timeAgo(last.ts):''}</span></div>
+          <div class="preview">${last?escapeHtml(last.text):'No messages yet'}</div>
+        </div>
+        ${unread ? '<div class="wa-dot"></div>' : ''}
+      </div>`;
+    }).join('')}</div>`;
+}
+function openClientFromFloatChat(clientId){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(c){ c.adminLastSeenTs = Date.now(); save(); }
+  document.getElementById('adminFloatChatPanel').style.display = 'none';
+  currentAdminTab = 'clients';
+  currentClientTab = 'chat';
+  openClientId = clientId;
+  renderAdmin();
+}
+
+function updateChatFabDot(c){
+  const dot = document.getElementById('chatFabDot');
+  if(!dot) return;
+  const lastAdminTs = [...c.messages].reverse().find(m=>m.from==='admin')?.ts || 0;
+  const seen = c.lastSeenTs || 0;
+  dot.style.display = (lastAdminTs > seen) ? 'block' : 'none';
+}
+function toggleFloatChat(clientId){
+  const panel = document.getElementById('floatChatPanel');
+  if(!panel) return;
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'flex';
+  if(!open){
+    const c = state.clients.find(x=>x.id===clientId);
+    if(c){ c.lastSeenTs = Date.now(); save(); updateChatFabDot(c); }
+  }
+}
+
+function toggleEmojiPicker(inputId){
+  const existing = document.getElementById('emojiPanel');
+  if(existing){ existing.remove(); if(existing.dataset.for===inputId) return; }
+  const emojis = ['😀','😂','😍','👍','🙏','🎉','🔥','❤️','😢','😮','👏','🙌','✅','⏳','📹','💰','😎','🤝'];
+  const panel = document.createElement('div');
+  panel.className = 'emoji-panel';
+  panel.id = 'emojiPanel';
+  panel.dataset.for = inputId;
+  panel.innerHTML = emojis.map(e=>`<span onclick="insertEmoji('${inputId}','${e}')">${e}</span>`).join('');
+  event.currentTarget.parentElement.appendChild(panel);
+  setTimeout(()=>document.addEventListener('click', closeEmojiPickerOnce, {once:true}), 0);
+}
+function closeEmojiPickerOnce(e){
+  const panel = document.getElementById('emojiPanel');
+  if(panel && !panel.contains(e.target)) panel.remove();
+}
+function insertEmoji(inputId, emoji){
+  const input = document.getElementById(inputId);
+  if(input) input.value += emoji;
+  const panel = document.getElementById('emojiPanel');
+  if(panel) panel.remove();
+  if(input) input.focus();
+}
+
+function sendChat(clientId, isFloat){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const input = document.getElementById(isFloat ? 'floatChatInput' : 'chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+  const msg = {from:'client', text, ts:Date.now()};
+  c.messages.push(msg);
+  save();
+  syncMessageToBackend(c.token, msg).catch(()=>{});
+  input.value='';
+  renderChat(c);
+}
+
+function copyUPI(){
+  navigator.clipboard?.writeText(state.profile.upi);
+  toast('UPI ID copied ✓');
+}
+
+async function submitPayment(clientId, videoId){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const amt = parseFloat(document.getElementById('payAmount').value);
+  if(!amt || amt<=0){ toast('Enter a valid amount'); return; }
+  const note = document.getElementById('payNote').value;
+  const file = document.getElementById('payScreenshot').files[0];
+  if(!file){ toast('Please upload a payment screenshot'); return; }
+
+  let screenshot = null, screenshotUrl = null;
+  try{
+    screenshotUrl = await uploadFileToB2(file, `/api/client/b2-upload-url?token=${encodeURIComponent(c.token)}`);
+  }catch(e){
+    if(file.size > 8*1024*1024){ toast('Screenshot too large (max 8MB without backend storage)'); return; }
+    screenshot = await fileToDataUrl(file); // local-only fallback
+  }
+
+  const payment = {
+    id:'pay_'+Date.now(), clientId: c.id, clientName: c.name, videoId: videoId||null,
+    amount: amt, note, status:'pending', ts:Date.now(), screenshot, screenshotUrl
+  };
+  state.payments.push(payment);
+  save();
+  closePaySheet();
+  toast('Payment submitted for review ✓');
+  showClient(c.token);
+  syncPaymentToBackend(payment).catch(()=>{});
+}
+function fileToDataUrl(file){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+/* ============================================================
+   PAYMENT ALLOCATION
+============================================================ */
+function allocatePayment(client, amount){
+  let remaining = amount;
+  const unpaid = client.videos
+    .filter(v => v.paid < v.price && (v.status==='ready'||v.status==='editing'))
+    .sort((a,b)=>(a.order||0)-(b.order||0));
+  for(const v of unpaid){
+    if(remaining<=0) break;
+    const due = v.price - v.paid;
+    const apply = Math.min(due, remaining);
+    v.paid += apply;
+    remaining -= apply;
+    if(v.paid >= v.price && v.status==='editing') v.status='ready';
+  }
+  if(remaining > 0) client.advance = (client.advance||0) + remaining;
+  return client;
+}
+
+function consumeAdvance(client, video){
+  if(!client.advance || client.advance<=0) return;
+  const use = Math.min(client.advance, video.price);
+  video.paid = use;
+  client.advance -= use;
+  client.walletLog = client.walletLog || [];
+  client.walletLog.push({type:'debit', amount:use, note:'Auto-applied to "'+video.title+'"', ts:Date.now()});
+}
+function setWalletBalance(clientId){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const newBal = parseFloat(document.getElementById('walletSetAmt').value);
+  if(isNaN(newBal) || newBal<0){ toast('Enter a valid amount'); return; }
+  const diff = newBal - (c.advance||0);
+  c.advance = newBal;
+  c.walletLog = c.walletLog || [];
+  if(diff !== 0){
+    c.walletLog.push({type: diff>0?'credit':'debit', amount: Math.abs(diff), note:'Balance manually set by admin', ts:Date.now()});
+  }
+  save();
+  toast('Wallet balance updated ✓');
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${c.id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'setWallet', balance:newBal})
+  }).catch(()=>{});
+}
+function addToWallet(clientId){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const amt = parseFloat(document.getElementById('walletAddAmt').value);
+  if(!amt || amt<=0){ toast('Enter a valid amount'); return; }
+  c.advance = (c.advance||0) + amt;
+  c.walletLog = c.walletLog || [];
+  c.walletLog.push({type:'credit', amount:amt, note:'Added by admin', ts:Date.now()});
+  save();
+  toast('Added to wallet ✓');
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${c.id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'addWallet', amount:amt})
+  }).catch(()=>{});
+}
+
+/* ============================================================
+   ADMIN
+============================================================ */
+const ADMIN_API_TOKEN_KEY = 'ashish_admin_api_token';
+function simpleHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = ((h<<5)-h) + str.charCodeAt(i); h |= 0; }
+  return 'h'+h;
+}
+function hasAdminAccount(){
+  return !!localStorage.getItem('ashish_admin_cred');
+}
+function genApiToken(){
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function adminLogin(){
+  const id = document.getElementById('adminId').value.trim();
+  const pw = document.getElementById('adminPw').value;
+  if(!id || !pw){ toast('Enter admin ID and password'); return; }
+
+  if(!hasAdminAccount()){
+    // first run: whatever is entered here becomes the permanent admin login
+    const apiToken = genApiToken();
+    localStorage.setItem('ashish_admin_cred', JSON.stringify({id, pw: simpleHash(pw)}));
+    localStorage.setItem('ashish_admin','1');
+    localStorage.setItem(ADMIN_API_TOKEN_KEY, apiToken);
+    location.hash = '#/admin';
+    route();
+    setTimeout(()=>alert('Admin account created!\n\nTo sync data with your KV backend, set this as the ADMIN_TOKEN environment variable in your Cloudflare Pages project settings:\n\n'+apiToken+'\n\n(You can view this again anytime under Profile.)'), 200);
+    return;
+  }
+
+  const cred = JSON.parse(localStorage.getItem('ashish_admin_cred'));
+  if(id === cred.id && simpleHash(pw) === cred.pw){
+    localStorage.setItem('ashish_admin','1');
+    location.hash = '#/admin';
+    route();
+  } else {
+    toast('Invalid credentials');
+  }
+}
+function adminLogout(){
+  localStorage.removeItem('ashish_admin');
+  adminDataSynced = false;
+  stopAdminChatPolling();
+  location.hash = '#/';
+  route();
+}
+async function adminFetch(url, opts={}){
+  const token = localStorage.getItem(ADMIN_API_TOKEN_KEY) || '';
+  const res = await fetch(url, {
+    ...opts,
+    headers: {...(opts.headers||{}), 'Authorization': 'Bearer ' + token}
+  });
+  if(res.status === 401){ throw new Error('unauthorized'); }
+  return res;
+}
+
+let currentAdminTab = 'overview';
+let adminDataSynced = false;
+
+async function loadAdminBackendData(){
+  if(adminDataSynced) return;
+  adminDataSynced = true;
+  try{
+    const [cRes, pRes] = await Promise.all([
+      adminFetch('/api/admin/clients'),
+      adminFetch('/api/admin/payments')
+    ]);
+    const cData = await cRes.json();
+    const pData = await pRes.json();
+    if(cData.ok && Array.isArray(cData.clients)) state.clients = cData.clients;
+    if(pData.ok && Array.isArray(pData.payments)) state.payments = pData.payments;
+    save();
+    renderAdmin();
+  }catch(e){ /* backend not deployed yet - keep local data */ }
+}
+
+function renderAdmin(){
+  loadAdminBackendData();
+  updateAdminChatFabDot();
+  const nav = document.getElementById('adminNav');
+  const tabs = [
+    ['overview','Overview'],['content','Homepage'],
+    ['clients','Clients'],
+    ['portfolio','Portfolio'],['payments','Payments'],
+    ['settings','Profile']
+  ];
+  nav.innerHTML = tabs.map(([k,l])=>
+    `<a data-tab="${k}" class="${currentAdminTab===k?'active':''}">${l}</a>`
+  ).join('') + `<a onclick="adminLogout()" style="color:var(--danger);margin-top:20px">Logout</a>`;
+  nav.querySelectorAll('a[data-tab]').forEach(a=>{
+    a.onclick = ()=>{ currentAdminTab = a.dataset.tab; openClientId = null; renderAdmin(); };
+  });
+
+  const main = document.getElementById('adminMain');
+  if(currentAdminTab==='overview') main.innerHTML = adminOverview();
+  else if(currentAdminTab==='content') main.innerHTML = adminContent();
+  else if(currentAdminTab==='clients') {
+    main.innerHTML = openClientId ? adminClientDetail(openClientId) : adminClients();
+    if(openClientId && currentClientTab==='chat'){
+      startAdminChatPolling(openClientId);
+      const cc = state.clients.find(x=>x.id===openClientId);
+      if(cc){ cc.adminLastSeenTs = Date.now(); save(); updateAdminChatFabDot(); }
+    }
+    else stopAdminChatPolling();
+  }
+  else if(currentAdminTab==='portfolio') main.innerHTML = adminPortfolio();
+  else if(currentAdminTab==='payments') main.innerHTML = adminPayments();
+  else if(currentAdminTab==='settings') main.innerHTML = adminSettings();
+}
+
+function money(n){ return '₹' + (n||0).toLocaleString('en-IN'); }
+
+/* ---------- OVERVIEW ---------- */
+function adminOverview(){
+  const totalPending = state.clients.reduce((s,c)=>
+    s + c.videos.reduce((a,v)=>a+Math.max(0,v.price-v.paid),0), 0);
+  const totalAdvance = state.clients.reduce((s,c)=> s+(c.advance||0), 0);
+  const videoCount = state.clients.reduce((s,c)=> s + c.videos.length, 0);
+  const pendingPays = state.payments.filter(p=>p.status==='pending').length;
+  return `
+    <div class="admin-header"><h1>Overview</h1><p>Quick snapshot of your studio.</p></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="label">Clients</div><div class="num">${state.clients.length}</div></div>
+      <div class="stat"><div class="label">Videos</div><div class="num">${videoCount}</div></div>
+      <div class="stat"><div class="label">Pending</div><div class="num red">${money(totalPending)}</div></div>
+      <div class="stat"><div class="label">Advance</div><div class="num green">${money(totalAdvance)}</div></div>
+      <div class="stat"><div class="label">Payments</div><div class="num">${pendingPays}</div></div>
+    </div>
+    <div class="card">
+      <h2>Top 5 Clients</h2>
+      ${state.clients.length===0 ? '<p style="color:var(--muted);font-size:14px">No clients yet.</p>' : `
+      <div class="wa-list">
+        ${state.clients.slice()
+          .sort((a,b)=>clientLastMsgTs(b)-clientLastMsgTs(a))
+          .slice(0,5)
+          .map(c=>{
+            const cPending = c.videos.reduce((s,v)=>s+Math.max(0,v.price-v.paid),0);
+            return `<div class="wa-item" onclick="currentAdminTab='clients';openClientDetail('${c.id}')">
+              <div class="wa-avatar">${clientInitials(c.name)}</div>
+              <div class="wa-info">
+                <div class="top"><h4>${escapeHtml(c.name)}</h4></div>
+                <div class="preview">${c.videos.length} project${c.videos.length===1?'':'s'} ${cPending>0?'· Pending '+money(cPending):''}</div>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>`}
+    </div>
+    <div class="card">
+      <h2>Recent Payments</h2>
+      ${state.payments.length===0
+        ? '<p style="color:var(--muted);font-size:14px">No payments yet.</p>'
+        : `<div class="table-wrap"><table>
+            <thead><tr><th>Client</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>${state.payments.slice(-5).reverse().map(p=>`
+              <tr><td>${escapeHtml(p.clientName)}</td><td>${money(p.amount)}</td><td>${p.status}</td>
+              <td>${new Date(p.ts).toLocaleDateString()}</td></tr>
+            `).join('')}</tbody>
+          </table></div>`}
+    </div>
+  `;
+}
+
+/* ---------- HOMEPAGE CONTENT EDITOR ---------- */
+function adminContent(){
+  const c = state.content;
+  return `
+    <div class="admin-header"><h1>Homepage Content</h1><p>Sab kuch yahin se edit karo — public site pe turant update hoga.</p></div>
+
+    <div class="card">
+      <h2>🖼️ Profile Photo</h2>
+      <div class="form-grid">
+        <div class="field full">
+          <label>Upload Photo (JPG/PNG)</label>
+          <input type="file" accept="image/*" id="photoUpload" onchange="handlePhotoUpload(event)"/>
+          <img id="photoPreview" class="photo-preview" src="${state.profile.photo}" alt="preview"/>
+          <p style="font-size:11px;color:var(--muted-2);margin-top:6px">Recommended: 800×800px, under 500KB.</p>
+        </div>
+        <div class="field full">
+          <label>Or paste Photo URL</label>
+          <input id="setPhoto" value="${state.profile.photo.startsWith('data:')?'':state.profile.photo}" placeholder="https://..."/>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎬 Hero Section</h2>
+      <div class="form-grid">
+        <div class="field"><label>Name</label><input id="setName" value="${escapeAttr(state.profile.name)}"/></div>
+        <div class="field"><label>Profession / Role</label><input id="setRole" value="${escapeAttr(state.profile.role)}"/></div>
+        <div class="field full"><label>Headline (use new line for line breaks)</label><textarea id="setHeadline">${escapeHtml(c.hero.headline)}</textarea></div>
+        <div class="field full"><label>Tags</label><input id="setTags" value="${escapeAttr(c.hero.tags)}"/></div>
+        <div class="field"><label>Primary Button Text</label><input id="setCta1Text" value="${escapeAttr(c.hero.primaryCtaText)}"/></div>
+        <div class="field"><label>Primary Button Link</label><input id="setCta1Href" value="${escapeAttr(c.hero.primaryCtaHref)}"/></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📁 Selected Work Section</h2>
+      <div class="form-grid">
+        <div class="field"><label>Label</label><input id="setWorkLabel" value="${escapeAttr(c.work.label)}"/></div>
+        <div class="field"><label>Headline</label><input id="setWorkHeadline" value="${escapeAttr(c.work.headline)}"/></div>
+        <div class="field full"><label>Sub-text</label><input id="setWorkSub" value="${escapeAttr(c.work.sub)}"/></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ Services Section</h2>
+      <div class="form-grid">
+        <div class="field"><label>Label</label><input id="setSvcLabel" value="${escapeAttr(c.services.label)}"/></div>
+        <div class="field"><label>Headline</label><input id="setSvcHeadline" value="${escapeAttr(c.services.headline)}"/></div>
+        <div class="field full"><label>Sub-text</label><input id="setSvcSub" value="${escapeAttr(c.services.sub)}"/></div>
+      </div>
+      <div class="admin-section-block">
+        <div class="label" style="margin-bottom:12px">Services Items</div>
+        <div id="svcItems">${c.services.items.map((s,i)=>svcItemRow(s,i)).join('')}</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="addSvcItem()">+ Add Service</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>✨ Why Work With Me</h2>
+      <div class="form-grid">
+        <div class="field"><label>Label</label><input id="setWhyLabel" value="${escapeAttr(c.why.label)}"/></div>
+        <div class="field"><label>Headline</label><input id="setWhyHeadline" value="${escapeAttr(c.why.headline)}"/></div>
+        <div class="field full"><label>Sub-text</label><input id="setWhySub" value="${escapeAttr(c.why.sub)}"/></div>
+      </div>
+      <div class="admin-section-block">
+        <div class="label" style="margin-bottom:12px">Why Items</div>
+        <div id="whyItems">${c.why.items.map((w,i)=>whyItemRow(w,i)).join('')}</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="addWhyItem()">+ Add Item</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>💬 Contact CTA</h2>
+      <div class="form-grid">
+        <div class="field"><label>Label</label><input id="setCtaLabel" value="${escapeAttr(c.cta.label)}"/></div>
+        <div class="field full"><label>Headline (multi-line)</label><textarea id="setCtaHeadline">${escapeHtml(c.cta.headline)}</textarea></div>
+        <div class="field full"><label>Sub-text</label><input id="setCtaSub" value="${escapeAttr(c.cta.sub)}"/></div>
+        <div class="field"><label>Button Text</label><input id="setCtaBtnText" value="${escapeAttr(c.cta.buttonText)}"/></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔗 Footer</h2>
+      <div class="form-grid">
+        <div class="field full"><label>Footer Copyright</label><input id="setFooterCopy" value="${escapeAttr(c.footer.copyright)}"/></div>
+      </div>
+      <p style="font-size:12px;color:var(--muted-2);margin-top:10px">Email, UPI, Telegram & WhatsApp are edited in the Profile tab.</p>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="saveContent()">💾 Save All Changes</button>
+      <button class="btn btn-ghost" onclick="resetContent()">↻ Reset to Default</button>
+    </div>
+  `;
+}
+
+function svcItemRow(s, i){
+  return `<div class="form-grid" style="margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:10px" data-svc-row>
+    <div class="field"><label>Title</label><input class="svc-title" value="${escapeAttr(s.title)}"/></div>
+    <div class="field"><label>Description</label><input class="svc-desc" value="${escapeAttr(s.desc)}"/></div>
+    <div class="field full"><button class="btn btn-danger btn-sm" onclick="this.closest('[data-svc-row]').remove()">Remove</button></div>
+  </div>`;
+}
+function whyItemRow(w, i){
+  return `<div class="form-grid" style="margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:10px" data-why-row>
+    <div class="field"><label>Title</label><input class="why-title" value="${escapeAttr(w.title)}"/></div>
+    <div class="field"><label>Description</label><input class="why-desc" value="${escapeAttr(w.desc)}"/></div>
+    <div class="field full"><button class="btn btn-danger btn-sm" onclick="this.closest('[data-why-row]').remove()">Remove</button></div>
+  </div>`;
+}
+function addSvcItem(){
+  document.getElementById('svcItems').insertAdjacentHTML('beforeend', svcItemRow({title:'',desc:''}, 0));
+}
+function addWhyItem(){
+  document.getElementById('whyItems').insertAdjacentHTML('beforeend', whyItemRow({title:'',desc:''}, 0));
+}
+
+function handlePhotoUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.size > 2*1024*1024){ toast('Photo too large (max 2MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    state.profile.photo = ev.target.result;
+    document.getElementById('photoPreview').src = ev.target.result;
+    document.getElementById('setPhoto').value = '';
+    save();
+    toast('Photo updated ✓');
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveContent(){
+  // profile
+  state.profile.name = document.getElementById('setName').value;
+  state.profile.role = document.getElementById('setRole').value;
+  const urlPhoto = document.getElementById('setPhoto').value.trim();
+  if(urlPhoto) state.profile.photo = urlPhoto;
+
+  // hero
+  state.content.hero.headline = document.getElementById('setHeadline').value;
+  state.content.hero.tags = document.getElementById('setTags').value;
+  state.content.hero.primaryCtaText = document.getElementById('setCta1Text').value;
+  state.content.hero.primaryCtaHref = document.getElementById('setCta1Href').value;
+
+  // work
+  state.content.work.label = document.getElementById('setWorkLabel').value;
+  state.content.work.headline = document.getElementById('setWorkHeadline').value;
+  state.content.work.sub = document.getElementById('setWorkSub').value;
+
+  // services
+  state.content.services.label = document.getElementById('setSvcLabel').value;
+  state.content.services.headline = document.getElementById('setSvcHeadline').value;
+  state.content.services.sub = document.getElementById('setSvcSub').value;
+  state.content.services.items = [...document.querySelectorAll('[data-svc-row]')].map(row=>({
+    title: row.querySelector('.svc-title').value,
+    desc: row.querySelector('.svc-desc').value
+  }));
+
+  // why
+  state.content.why.label = document.getElementById('setWhyLabel').value;
+  state.content.why.headline = document.getElementById('setWhyHeadline').value;
+  state.content.why.sub = document.getElementById('setWhySub').value;
+  state.content.why.items = [...document.querySelectorAll('[data-why-row]')].map(row=>({
+    title: row.querySelector('.why-title').value,
+    desc: row.querySelector('.why-desc').value
+  }));
+
+  // cta
+  state.content.cta.label = document.getElementById('setCtaLabel').value;
+  state.content.cta.headline = document.getElementById('setCtaHeadline').value;
+  state.content.cta.sub = document.getElementById('setCtaSub').value;
+  state.content.cta.buttonText = document.getElementById('setCtaBtnText').value;
+
+  // footer
+  state.content.footer.copyright = document.getElementById('setFooterCopy').value;
+
+  save();
+  toast('All changes saved ✓');
+}
+
+function resetContent(){
+  if(!confirm('Reset all homepage content to default?')) return;
+  state.content = JSON.parse(JSON.stringify(defaultContent));
+  state.profile = JSON.parse(JSON.stringify(defaultProfile));
+  save();
+  toast('Reset done ✓');
+  renderAdmin();
+}
+
+/* ---------- CLIENTS (WhatsApp-style list) ---------- */
+let openClientId = null;
+let currentClientTab = 'info';
+
+function clientLastMsgTs(c){
+  if(!c.messages || c.messages.length===0) return c.id ? 0 : 0;
+  return c.messages[c.messages.length-1].ts || 0;
+}
+function clientInitials(name){
+  return (name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+}
+function timeAgo(ts){
+  if(!ts) return '';
+  const d = Date.now() - ts;
+  const m = Math.floor(d/60000);
+  if(m < 1) return 'now';
+  if(m < 60) return m+'m';
+  const h = Math.floor(m/60);
+  if(h < 24) return h+'h';
+  return Math.floor(h/24)+'d';
+}
+
+function adminClients(){
+  const sorted = [...state.clients].sort((a,b)=>clientLastMsgTs(b)-clientLastMsgTs(a));
+  return `
+    <div class="admin-header"><h1>Clients</h1><p>${state.clients.length} active clients.</p></div>
+    <div class="card">
+      <h2>Add Client</h2>
+      <div class="form-grid">
+        <div class="field"><label>Name</label><input id="newClientName" placeholder="Rahul"/></div>
+        <div class="field"><label>Portal Token (URL slug)</label><input id="newClientToken" placeholder="rahul-123"/></div>
+        <div class="field"><label>Greeting</label><input id="newClientGreet" value="Good evening"/></div>
+        <div class="field full"><button class="btn btn-primary btn-full" onclick="addClient()">Create Client</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>All Clients</h2>
+      ${sorted.length===0 ? '<p style="color:var(--muted);font-size:14px">No clients yet.</p>' : `
+      <div class="wa-list">
+        ${sorted.map(c=>{
+          const last = c.messages && c.messages.length ? c.messages[c.messages.length-1] : null;
+          const pending = c.videos.reduce((s,v)=>s+Math.max(0,v.price-v.paid),0);
+          return `<div class="wa-item" onclick="openClientDetail('${c.id}')">
+            <div class="wa-avatar">${clientInitials(c.name)}</div>
+            <div class="wa-info">
+              <div class="top">
+                <h4>${escapeHtml(c.name)}</h4>
+                <span class="time">${last ? timeAgo(last.ts) : ''}</span>
+              </div>
+              <div class="preview">${last ? escapeHtml(last.text) : (pending>0 ? 'Pending: '+money(pending) : 'No messages yet')}</div>
+            </div>
+            ${pending>0 ? '<div class="wa-dot" style="background:var(--danger)"></div>' : ''}
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+  `;
+}
+
+function openClientDetail(id){
+  openClientId = id;
+  currentClientTab = 'info';
+  renderAdmin();
+}
+function closeClientDetail(){
+  openClientId = null;
+  renderAdmin();
+}
+
+function adminClientDetail(id){
+  const c = state.clients.find(x=>x.id===id);
+  if(!c){ openClientId=null; return adminClients(); }
+  const url = location.origin + location.pathname + '#/c/' + c.token;
+  const pending = c.videos.reduce((s,v)=>s+Math.max(0,v.price-v.paid),0);
+  const cPayments = (state.payments||[]).filter(p=>p.clientId===c.id).slice().reverse();
+
+  const tabs = [['info','Info'],['videos','Videos'],['chat','Chat'],['payments','Payments']];
+  const tabBar = `<div class="cd-tabs">${tabs.map(([k,l])=>
+    `<a class="cd-tab ${currentClientTab===k?'active':''}" onclick="currentClientTab='${k}';renderAdmin()">${l}</a>`
+  ).join('')}</div>`;
+
+  let body = '';
+  if(currentClientTab==='info'){
+    const log = (c.walletLog||[]).slice().reverse();
+    body = `
+      <div class="card">
+        <h2>Client Info</h2>
+        <div class="form-grid">
+          <div class="field"><label>Name</label><input id="cdName" value="${escapeAttr(c.name)}"/></div>
+          <div class="field"><label>Greeting</label><input id="cdGreet" value="${escapeAttr(c.greet||'')}"/></div>
+          <div class="field"><label>Pending</label><input value="${money(pending)}" disabled/></div>
+          <div class="field"><label>Advance</label><input value="${money(c.advance||0)}" disabled/></div>
+          <div class="field full"><button class="btn btn-primary" onclick="saveClientInfo('${c.id}')">Save</button></div>
+        </div>
+        <div class="row-actions" style="margin-top:14px">
+          <button class="btn btn-sm btn-ghost" onclick="copyLink('${url}')">Copy Portal Link</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteClient('${c.id}')">Delete Client</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Wallet</h2>
+        <p class="sub" style="font-size:20px;font-weight:600;color:var(--success);margin-bottom:10px">${money(c.advance||0)}</p>
+        <div class="form-grid">
+          <div class="field"><label>Add Amount (₹)</label><input type="number" id="walletAddAmt" placeholder="500"/></div>
+          <div class="field full"><button class="btn btn-primary" onclick="addToWallet('${c.id}')">Add to Wallet</button></div>
+          <div class="field"><label>Set Exact Balance (₹)</label><input type="number" id="walletSetAmt" placeholder="${c.advance||0}"/></div>
+          <div class="field full"><button class="btn btn-ghost" onclick="setWalletBalance('${c.id}')">Set Balance</button></div>
+        </div>
+        <div class="payhist" style="margin-top:14px">
+          ${(()=>{
+            let running=0;
+            const withBal = (c.walletLog||[]).map(t=>{ const before=running; running += (t.type==='credit'?t.amount:-t.amount); return {...t, before, after:running}; });
+            if(withBal.length===0) return '<p style="color:var(--muted);font-size:13px">No wallet transactions yet.</p>';
+            return withBal.slice().reverse().map(t=>`<div class="payhist-item" style="cursor:pointer" onclick='showWalletTxDetail(${JSON.stringify(t).replace(/'/g,"&apos;")})'>
+              <div class="info">
+                <div class="top"><span style="color:${t.type==='credit'?'var(--success)':'var(--danger)'}">${t.type==='credit'?'+':'-'}${money(t.amount)}</span>
+                <span class="sub">${new Date(t.ts).toLocaleDateString()}</span></div>
+                <div class="sub">${escapeHtml(t.note)} · Balance: ${money(t.after)}</div>
+              </div>
+            </div>`).join('');
+          })()}
+        </div>
+      </div>`;
+  } else if(currentClientTab==='videos'){
+    body = `
+      <div class="card">
+        <h2>Add Video</h2>
+        <div class="form-grid">
+          <div class="field"><label>Title</label><input id="newVideoTitle" placeholder="Birthday Reel #04"/></div>
+          <div class="field"><label>Price (₹)</label><input type="number" id="newVideoPrice" placeholder="150"/></div>
+          <div class="field"><label>Status</label><select id="newVideoStatus">
+            <option value="editing">Editing</option><option value="ready">Ready</option>
+          </select></div>
+          <div class="field full">
+            <label>Date</label><input type="date" id="newVideoDate" value="${todayStr()}"/>
+          </div>
+          <div class="field full"><label>Upload Original Video (goes to your B2 storage)</label><input type="file" id="newVideoFile" accept="video/*"/></div>
+          <div class="field full"><label>...or paste a link (Google Drive etc.)</label><input id="newVideoDrive" placeholder="https://drive.google.com/file/d/..."/></div>
+          <div class="field full" id="newVideoUploadStatus" style="font-size:12px;color:var(--muted)"></div>
+          <div class="field full"><button class="btn btn-primary btn-full" onclick="addVideoToClient('${c.id}')">Add Video</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Projects (${c.videos.length})</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Title</th><th>Price</th><th>Paid</th><th>Status</th><th>Review</th><th></th></tr></thead>
+          <tbody>${c.videos.map(v=>`
+            <tr><td>${escapeHtml(v.title)}</td><td>${money(v.price)}</td><td>${money(v.paid)}</td><td>${v.status}${v.readyDate?' · '+v.readyDate:''}</td>
+            <td>${v.review ? '★'.repeat(v.review.rating)+' '+escapeHtml(v.review.comment||'') : '—'}</td>
+            <td class="row-actions">
+              <button class="btn btn-sm btn-ghost" onclick="editVideoPrompt('${c.id}','${v.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteVideo('${c.id}','${v.id}')">Delete</button>
+            </td></tr>
+          `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No videos yet.</td></tr>'}</tbody>
+        </table></div>
+      </div>`;
+  } else if(currentClientTab==='chat'){
+    body = `
+      <div class="card">
+        <h2>Conversation</h2>
+        <div class="chat-log" style="max-height:360px">
+          ${c.messages.length===0?'<p style="color:var(--muted);font-size:13px">No messages.</p>':
+            c.messages.map(m=>`<div class="msg ${m.from==='admin'?'me':'them'}">${escapeHtml(m.text)}</div>`).join('')}
+        </div>
+        <div class="chat-input" style="margin-top:14px;position:relative">
+          <button class="btn btn-ghost btn-sm" onclick="toggleEmojiPicker('cdReplyInput')" type="button">😊</button>
+          <input type="text" id="cdReplyInput" placeholder="Reply to ${escapeHtml(c.name)}..." onkeydown="if(event.key==='Enter')adminReply('${c.id}',this)"/>
+          <button class="btn btn-primary btn-sm" onclick="adminReply('${c.id}', document.getElementById('cdReplyInput'))">Send</button>
+        </div>
+      </div>`;
+  } else if(currentClientTab==='payments'){
+    body = `
+      <div class="card">
+        <h2>Payments (${cPayments.length})</h2>
+        ${cPayments.length===0 ? '<p style="color:var(--muted);font-size:14px">No payments yet.</p>' :
+          `<div class="payhist">${cPayments.map(p=>`
+            <div class="payhist-item">
+              ${(p.screenshotUrl||p.screenshot||p.hasShot) ? `<div class="shot" onclick="event.stopPropagation();viewShotAdmin('${p.id}')">${p.screenshotUrl?`<img src="${p.screenshotUrl}" alt=""/>`:p.screenshot?`<img src="${p.screenshot}" alt=""/>`:'📷'}</div>` : '<div class="shot"></div>'}
+              <div class="info" style="cursor:pointer" onclick='showPaymentDetail(${JSON.stringify(p).replace(/'/g,"&apos;")})'>
+                <div class="top"><span>${money(p.amount)}</span><span class="status ${p.status==='approved'?'s-paid':p.status==='rejected'?'s-pending':'s-editing'}">${p.status}</span></div>
+                <div class="sub">${new Date(p.ts).toLocaleDateString()} ${p.note?'· '+escapeHtml(p.note):''}</div>
+              </div>
+              ${p.status==='pending' ? `<div class="row-actions">
+                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();approvePayment('${p.id}')">Approve</button>
+                <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();rejectPayment('${p.id}')">Reject</button>
+              </div>` : ''}
+            </div>
+          `).join('')}</div>`}
+      </div>`;
+  }
+
+  return `
+    <button class="btn btn-ghost btn-sm cd-back" onclick="closeClientDetail()">← All Clients</button>
+    <div class="cd-head">
+      <div class="wa-avatar">${clientInitials(c.name)}</div>
+      <div>
+        <h1>${escapeHtml(c.name)}</h1>
+        <div class="link">${url}</div>
+      </div>
+    </div>
+    ${tabBar}
+    ${body}
+  `;
+}
+
+let adminChatPollTimer = null;
+function startAdminChatPolling(clientId){
+  stopAdminChatPolling();
+  adminChatPollTimer = setInterval(()=>refreshAdminChatLive(clientId), 3500);
+}
+function stopAdminChatPolling(){
+  if(adminChatPollTimer){ clearInterval(adminChatPollTimer); adminChatPollTimer = null; }
+}
+async function refreshAdminChatLive(clientId){
+  if(document.hidden) return;
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c || openClientId!==clientId || currentClientTab!=='chat') { stopAdminChatPolling(); return; }
+  try{
+    const res = await fetch(`${CLIENT_API}/${encodeURIComponent(c.token)}`);
+    if(!res.ok) return;
+    const data = await res.json();
+    if(!data.ok || !data.client) return;
+    c.messages = data.client.messages || c.messages;
+    save();
+    const log = document.querySelector('#adminMain .chat-log');
+    if(log){
+      log.innerHTML = c.messages.length===0?'<p style="color:var(--muted);font-size:13px">No messages.</p>':
+        c.messages.map(m=>`<div class="msg ${m.from==='admin'?'me':'them'}">${escapeHtml(m.text)}</div>`).join('');
+      log.scrollTop = log.scrollHeight;
+    }
+  }catch(e){ /* backend not deployed */ }
+}
+
+function saveClientInfo(id){
+  const c = state.clients.find(x=>x.id===id);
+  if(!c) return;
+  c.name = document.getElementById('cdName').value.trim() || c.name;
+  c.greet = document.getElementById('cdGreet').value.trim() || c.greet;
+  save();
+  toast('Client updated ✓');
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'update', name:c.name, greet:c.greet})
+  }).catch(()=>{});
+}
+
+/* ---------- PORTFOLIO (KV BACKED) ---------- */
+function adminPortfolio(){
+  return `
+    <div class="admin-header"><h1>Portfolio (KV)</h1><p>Videos yahan se add/delete karo — Cloudflare KV me auto-sync hoga. Public Work section turant update hoga.</p></div>
+    <div class="card">
+      <h2>Add Portfolio Video</h2>
+      <div class="form-grid">
+        <div class="field"><label>Title</label><input id="pfTitle" placeholder="Cinematic Cut"/></div>
+        <div class="field"><label>Category</label><select id="pfCat">
+          <option>Reels</option><option>YouTube</option><option>Shorts</option>
+          <option>Cinematic</option><option>Ads</option>
+        </select></div>
+        <div class="field full"><label>Video URL (mp4 or embed)</label><input id="pfUrl" placeholder="https://....mp4"/></div>
+        <div class="field full"><label>...or Upload Video File (short clips, max 8MB)</label><input type="file" id="pfFile" accept="video/*"/></div>
+        <div class="field full"><label>Thumbnail URL</label><input id="pfThumb" placeholder="https://..."/></div>
+        <div class="field full"><label>Description</label><textarea id="pfDesc" placeholder="Short description..."></textarea></div>
+        <div class="field"><label>Display Order</label><input type="number" id="pfOrder" value="${state.portfolio.length+1}"/></div>
+        <div class="field"><label>Featured</label><div class="toggle"><input type="checkbox" id="pfFeatured"/> <span>Show as featured</span></div></div>
+        <div class="field full"><button class="btn btn-primary btn-full" onclick="addPortfolioVideo()">Save Video to KV</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>All Portfolio Videos (${state.portfolio.length})</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Order</th><th>Title</th><th>Category</th><th>Featured</th><th></th></tr></thead>
+        <tbody>
+        ${[...state.portfolio].sort((a,b)=>(a.order||0)-(b.order||0)).map(v=>`
+          <tr>
+            <td>${v.order||0}</td>
+            <td>${escapeHtml(v.title)}</td>
+            <td>${escapeHtml(v.category)}</td>
+            <td>${v.featured?'★':'—'}</td>
+            <td class="row-actions">
+              <button class="btn btn-sm btn-ghost" onclick="editPortfolioPrompt('${v.id}')">Edit</button>
+              <button class="btn btn-sm btn-danger" onclick="deletePortfolio('${v.id}')">Delete</button>
+            </td>
+          </tr>
+        `).join('')}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+}
+
+/* ---------- PAYMENTS ---------- */
+function adminPayments(){
+  return `
+    <div class="admin-header"><h1>Payments</h1><p>Approve or reject client payments. Auto-allocation runs on approve.</p></div>
+    <div class="card">
+      <h2>Submitted Payments</h2>
+      ${state.payments.length===0
+        ? '<p style="color:var(--muted);font-size:14px">No payments submitted yet.</p>'
+        : `<div class="table-wrap"><table>
+            <thead><tr><th>Client</th><th>Amount</th><th>Note</th><th>Shot</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+            <tbody>${state.payments.slice().reverse().map(p=>`
+              <tr>
+                <td>${escapeHtml(p.clientName)}</td>
+                <td>${money(p.amount)}</td>
+                <td>${escapeHtml(p.note||'—')}</td>
+                <td>${(p.screenshot||p.hasShot) ? `<button class="btn btn-sm btn-ghost" onclick="viewShotAdmin('${p.id}')">View</button>` : '—'}</td>
+                <td>${p.status}</td>
+                <td>${new Date(p.ts).toLocaleDateString()}</td>
+                <td class="row-actions">${p.status==='pending'
+                  ? `<button class="btn btn-sm btn-primary" onclick="approvePayment('${p.id}')">Approve</button>
+                     <button class="btn btn-sm btn-ghost" onclick="rejectPayment('${p.id}')">Reject</button>`
+                  : '—'}</td>
+              </tr>
+            `).join('')}</tbody>
+          </table></div>`}
+    </div>
+  `;
+}
+
+/* ---------- SETTINGS ---------- */
+function adminSettings(){
+  return `
+    <div class="admin-header"><h1>Profile & Account</h1><p>Public site ke contact info update karo.</p></div>
+    <div class="card">
+      <h2>Profile</h2>
+      <div class="form-grid">
+        <div class="field"><label>Name</label><input id="sName" value="${escapeAttr(state.profile.name)}"/></div>
+        <div class="field"><label>Role</label><input id="sRole" value="${escapeAttr(state.profile.role)}"/></div>
+        <div class="field"><label>Email</label><input id="sEmail" value="${escapeAttr(state.profile.email)}"/></div>
+        <div class="field"><label>UPI ID</label><input id="sUpi" value="${escapeAttr(state.profile.upi)}"/></div>
+        <div class="field"><label>Telegram</label><input id="sTelegram" value="${escapeAttr(state.profile.telegram||'')}"/></div>
+        <div class="field"><label>WhatsApp (number or full wa.me link)</label><input id="sWhatsapp" value="${escapeAttr(state.profile.whatsapp||'')}" placeholder="91XXXXXXXXXX or https://wa.me/91XXXXXXXXXX?text=..."/></div>
+        <div class="field full"><button class="btn btn-primary btn-full" onclick="saveSettings()">Save</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Backend Sync Token</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:10px">Set this as the <code>ADMIN_TOKEN</code> environment variable in your Cloudflare Pages project so admin actions sync to your KV.</p>
+      <div class="upi-row">
+        <code style="word-break:break-all">${localStorage.getItem(ADMIN_API_TOKEN_KEY)||'—'}</code>
+        <button class="btn btn-sm btn-ghost" onclick="navigator.clipboard.writeText(localStorage.getItem(ADMIN_API_TOKEN_KEY)||'');toast('Copied ✓')">Copy</button>
+      </div>
+      <button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="regenerateAdminToken()">Regenerate Token</button>
+    </div>
+    <div class="card">
+      <h2>Danger Zone</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Sab data delete ho jayega (clients, videos, payments).</p>
+      <button class="btn btn-danger" onclick="wipeAll()">Wipe All Data</button>
+    </div>
+  `;
+}
+
+/* ============================================================
+   ADMIN ACTIONS
+============================================================ */
+function addClient(){
+  const name = document.getElementById('newClientName').value.trim();
+  let token = document.getElementById('newClientToken').value.trim()
+    || (name.toLowerCase().replace(/\s+/g,'-') + '-' + Math.floor(Math.random()*1000));
+  const greet = document.getElementById('newClientGreet').value.trim() || 'Hello';
+  if(!name){ toast('Enter client name'); return; }
+  if(state.clients.some(c=>c.token===token)){ toast('Token already in use'); return; }
+  state.clients.push({
+    id:'c_'+Date.now(), token, name, greet,
+    videos:[], advance:0, messages:[], views:0, uniques:0
+  });
+  save();
+  toast('Client created ✓');
+  renderAdmin();
+  adminFetch('/api/admin/clients', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name, token, greet})}).catch(()=>{});
+}
+
+function deleteClient(id){
+  if(!confirm('Delete this client and all their videos?')) return;
+  state.clients = state.clients.filter(c=>c.id!==id);
+  save();
+  openClientId = null;
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${id}`, {method:'DELETE'}).catch(()=>{});
+}
+
+async function addVideoToClient(clientId){
+  const client = state.clients.find(c=>c.id===clientId);
+  if(!client){ toast('Client not found'); return; }
+  const title = document.getElementById('newVideoTitle').value.trim();
+  const price = parseFloat(document.getElementById('newVideoPrice').value)||0;
+  const status = document.getElementById('newVideoStatus').value;
+  const driveLink = document.getElementById('newVideoDrive').value.trim();
+  const file = document.getElementById('newVideoFile').files[0];
+  const readyDateInput = document.getElementById('newVideoDate').value;
+  const statusEl = document.getElementById('newVideoUploadStatus');
+  if(!title){ toast('Enter a title'); return; }
+
+  let videoUrl = '';
+  if(file){
+    statusEl.textContent = 'Uploading original to B2… (' + Math.round(file.size/1024/1024) + ' MB)';
+    try{
+      videoUrl = await uploadFileToB2(file, '/api/admin/b2-upload-url');
+      statusEl.textContent = 'Uploaded ✓';
+    }catch(e){
+      statusEl.textContent = '';
+      toast('Upload failed: ' + e.message);
+      return;
+    }
+  }
+
+  const thumb = driveThumb(driveLink) || 'https://images.unsplash.com/photo-1536240478700-b869070f9279?w=400&q=70&auto=format&fit=crop';
+  const readyDate = readyDateInput || todayStr();
+  const video = {id:'v_'+Date.now(), title, price, paid:0, status, thumb, driveLink, videoUrl, readyDate, review:null, order: client.videos.length};
+  consumeAdvance(client, video);
+  client.videos.push(video);
+  save();
+  toast('Video added ✓');
+  document.getElementById('newVideoTitle').value='';
+  document.getElementById('newVideoPrice').value='';
+  document.getElementById('newVideoDrive').value='';
+  document.getElementById('newVideoDate').value='';
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${client.id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'addVideo', video:{title, price, status, thumb, driveLink, videoUrl, readyDate}})
+  }).catch(()=>{});
+}
+function videoSortTs(v){
+  if(v.readyDate){ const t = new Date(v.readyDate).getTime(); if(!isNaN(t)) return t; }
+  const m = String(v.id||'').match(/v_(\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+function formatNiceDate(dateStr){
+  const d = new Date(dateStr);
+  if(isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+}
+
+function todayStr(){
+  return new Date().toISOString().slice(0,10);
+}
+function editVideoPrompt(clientId, videoId){
+  const c = state.clients.find(x=>x.id===clientId);
+  const v = c && c.videos.find(x=>x.id===videoId);
+  if(!v) return;
+  openEditVideoSheet(c, v);
+}
+function openEditVideoSheet(c, v){
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'editVideoBg';
+  bg.innerHTML = `
+    <div class="pay-sheet">
+      <h3>Edit Project</h3>
+      <div class="form-grid">
+        <div class="field full"><label>Title</label><input id="evTitle" value="${escapeAttr(v.title)}"/></div>
+        <div class="field"><label>Price (₹)</label><input type="number" id="evPrice" value="${v.price}"/></div>
+        <div class="field"><label>Status</label><select id="evStatus">
+          <option value="editing" ${v.status==='editing'?'selected':''}>Editing</option>
+          <option value="ready" ${v.status==='ready'?'selected':''}>Ready</option>
+        </select></div>
+        <div class="field full">
+          <label>Date</label><input type="date" id="evDate" value="${v.readyDate||todayStr()}"/>
+        </div>
+        <div class="field full"><label>Upload Original Video (replaces current file)</label><input type="file" id="evFile" accept="video/*"/></div>
+        <div class="field full"><label>...or Video Link (Google Drive etc.)</label><input id="evDrive" value="${escapeAttr(v.driveLink||'')}" placeholder="https://drive.google.com/file/d/..."/></div>
+        <div class="field full" id="evUploadStatus" style="font-size:12px;color:var(--muted)"></div>
+        <div class="field full" style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-full" onclick="document.getElementById('editVideoBg').remove()">Cancel</button>
+          <button class="btn btn-primary btn-full" onclick="saveEditedVideo('${c.id}','${v.id}')">Save</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+async function saveEditedVideo(clientId, videoId){
+  const c = state.clients.find(x=>x.id===clientId);
+  const v = c && c.videos.find(x=>x.id===videoId);
+  if(!v) return;
+  const file = document.getElementById('evFile').files[0];
+  const statusEl = document.getElementById('evUploadStatus');
+  if(file){
+    statusEl.textContent = 'Uploading original to B2…';
+    try{
+      v.videoUrl = await uploadFileToB2(file, '/api/admin/b2-upload-url');
+      statusEl.textContent = 'Uploaded ✓';
+    }catch(e){
+      statusEl.textContent = '';
+      toast('Upload failed: ' + e.message);
+      return;
+    }
+  }
+  v.title = document.getElementById('evTitle').value.trim() || v.title;
+  v.price = parseFloat(document.getElementById('evPrice').value) || v.price;
+  v.status = document.getElementById('evStatus').value;
+  v.driveLink = document.getElementById('evDrive').value.trim();
+  v.thumb = driveThumb(v.driveLink) || v.thumb;
+  v.readyDate = document.getElementById('evDate').value || v.readyDate || todayStr();
+  save();
+  document.getElementById('editVideoBg').remove();
+  toast('Project updated ✓');
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${clientId}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'updateVideo', videoId, video:{title:v.title, price:v.price, status:v.status, driveLink:v.driveLink, videoUrl:v.videoUrl, thumb:v.thumb, readyDate:v.readyDate}})
+  }).catch(()=>{});
+}
+
+function deleteVideo(clientId, videoId){
+  if(!confirm('Delete this video?')) return;
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  c.videos = c.videos.filter(v=>v.id!==videoId);
+  save();
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${clientId}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'deleteVideo', videoId})
+  }).catch(()=>{});
+}
+
+function approvePayment(id){
+  const p = state.payments.find(x=>x.id===id);
+  if(!p || p.status!=='pending') return;
+  const c = state.clients.find(x=>x.id===p.clientId);
+  if(!c){ toast('Client not found'); return; }
+  const targetVideo = p.videoId ? c.videos.find(v=>v.id===p.videoId) : null;
+  if(targetVideo){
+    const due = Math.max(0, targetVideo.price - targetVideo.paid);
+    const apply = Math.min(due, p.amount);
+    targetVideo.paid += apply;
+    if(targetVideo.paid >= targetVideo.price && targetVideo.status==='editing') targetVideo.status='ready';
+    const extra = p.amount - apply;
+    if(extra > 0) allocatePayment(c, extra);
+  } else {
+    allocatePayment(c, p.amount);
+  }
+  p.status='approved'; p.decidedTs=Date.now();
+  save();
+  toast('Payment approved & allocated ✓');
+  renderAdmin();
+  adminFetch(`/api/admin/payments/${p.id}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'approve'})}).catch(()=>{});
+}
+
+function rejectPayment(id){
+  const p = state.payments.find(x=>x.id===id);
+  if(!p) return;
+  p.status='rejected'; p.decidedTs=Date.now();
+  save();
+  renderAdmin();
+  adminFetch(`/api/admin/payments/${p.id}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'reject'})}).catch(()=>{});
+}
+
+function adminReply(clientId, inputEl){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c) return;
+  const text = inputEl.value.trim();
+  if(!text) return;
+  const msg = {from:'admin', text, ts:Date.now()};
+  c.messages.push(msg);
+  save();
+  inputEl.value='';
+  toast('Message sent ✓');
+  renderAdmin();
+  adminFetch(`/api/admin/clients/${c.id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'message', message: msg})
+  }).catch(()=>{});
+}
+
+function saveSettings(){
+  state.profile.name = document.getElementById('sName').value;
+  state.profile.role = document.getElementById('sRole').value;
+  state.profile.email = document.getElementById('sEmail').value;
+  state.profile.upi = document.getElementById('sUpi').value;
+  state.profile.telegram = document.getElementById('sTelegram').value;
+  state.profile.whatsapp = document.getElementById('sWhatsapp').value;
+  save();
+  toast('Settings saved ✓');
+}
+
+function regenerateAdminToken(){
+  const newToken = genApiToken();
+  localStorage.setItem(ADMIN_API_TOKEN_KEY, newToken);
+  toast('New token generated — copy it and update ADMIN_TOKEN in Cloudflare');
+  renderAdmin();
+}
+function wipeAll(){
+  if(!confirm('Wipe ALL data? Ye undo nahi hoga.')) return;
+  ['profile','content','portfolio','clients','payments'].forEach(k=>localStorage.removeItem('ashish_'+k));
+  location.reload();
+}
+
+/* ============================================================
+   BACKBLAZE B2 DIRECT UPLOAD
+   File goes straight from the browser to B2 (not through our Worker),
+   so there's no server request-size limit on original video files.
+============================================================ */
+async function uploadFileToB2(file, slotUrl){
+  const isAdminSlot = slotUrl.indexOf('/api/admin/') !== -1;
+  const slotRes = await fetch(slotUrl, isAdminSlot ? {headers:{'Authorization':'Bearer '+(localStorage.getItem(ADMIN_API_TOKEN_KEY)||'')}} : {});
+  const slot = await slotRes.json();
+  if(!slot.ok) throw new Error(slot.error || 'Could not get upload slot');
+
+  const fileName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const uploadRes = await fetch(slot.uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': slot.uploadAuthToken,
+      'X-Bz-File-Name': encodeURIComponent(fileName),
+      'Content-Type': file.type || 'b2/x-auto',
+      'X-Bz-Content-Sha1': 'do_not_verify'
+    },
+    body: file
+  });
+  if(!uploadRes.ok) throw new Error('B2 upload failed');
+  return `${slot.downloadUrl}/file/${slot.bucketName}/${fileName}`;
+}
+async function forceDownload(url, filename){
+  toast('Preparing download…');
+  const blob = await (await fetch(url)).blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename || 'video';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/* ============================================================
+   CLIENT PORTAL <-> BACKEND SYNC
+   All calls fail silently to localStorage-only mode if the
+   backend (functions/api/*) isn't deployed, so the file still
+   works standalone as a demo.
+============================================================ */
+const CLIENT_API = '/api/client';
+let chatPollTimer = null;
+
+function startChatPolling(clientId){
+  stopChatPolling();
+  chatPollTimer = setInterval(()=>refreshClientLive(clientId), 3500);
+  document.addEventListener('visibilitychange', onVisibilityChangeForPoll);
+}
+function stopChatPolling(){
+  if(chatPollTimer){ clearInterval(chatPollTimer); chatPollTimer = null; }
+  document.removeEventListener('visibilitychange', onVisibilityChangeForPoll);
+}
+function onVisibilityChangeForPoll(){
+  if(document.hidden) stopChatPolling();
+}
+async function refreshClientLive(clientId){
+  const c = state.clients.find(x=>x.id===clientId);
+  if(!c || document.hidden) return;
+  try{
+    const res = await fetch(`${CLIENT_API}/${encodeURIComponent(c.token)}`, {headers:{'Accept':'application/json'}});
+    if(!res.ok) return;
+    const data = await res.json();
+    if(!data.ok || !data.client) return;
+    // merge server truth for messages/videos/advance without losing local id
+    c.messages = data.client.messages || c.messages;
+    c.videos = data.client.videos || c.videos;
+    c.advance = data.client.advance ?? c.advance;
+    if(Array.isArray(data.payments)){
+      data.payments.forEach(sp=>{
+        const local = state.payments.find(x=>x.id===sp.id);
+        if(local){ local.status = sp.status; local.amount = sp.amount; local.hasShot = sp.hasShot; }
+        else state.payments.push(sp);
+      });
+    }
+    renderChat(c);
+    save();
+  }catch(e){ /* backend not deployed - stay on local state */ }
+}
+async function syncMessageToBackend(token, msg){
+  await fetch(`${CLIENT_API}/${encodeURIComponent(token)}/message`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(msg)
+  });
+}
+async function syncPaymentToBackend(payment){
+  const c = state.clients.find(x=>x.id===payment.clientId);
+  if(!c) return;
+  await fetch(`${CLIENT_API}/${encodeURIComponent(c.token)}/payment`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payment)
+  });
+}
+
+/* ============================================================
+   PORTFOLIO (local-first, synced with KV when backend is deployed)
+============================================================ */
+const PORTFOLIO_API = '/api/projects';
+
+async function loadPortfolioFromKV(){
+  try{
+    const res = await fetch(PORTFOLIO_API);
+    if(!res.ok) return;
+    const data = await res.json();
+    if(data.ok && Array.isArray(data.projects) && data.projects.length){
+      state.portfolio = data.projects.map(p=>({
+        id: p.id, title: p.title, category: p.category, featured: p.featured,
+        order: p.order, thumb: p.thumbnail, url: p.video, desc: p.description
+      }));
+      save();
+      renderFilters();
+      renderPortfolio('All');
+    }
+  }catch(e){ /* backend not deployed - keep local/default portfolio */ }
+}
+
+function addPortfolioVideo(){
+  const title = document.getElementById('pfTitle').value.trim();
+  const cat = document.getElementById('pfCat').value;
+  let url = document.getElementById('pfUrl').value.trim();
+  const thumb = document.getElementById('pfThumb').value.trim();
+  const desc = document.getElementById('pfDesc').value.trim();
+  const order = parseInt(document.getElementById('pfOrder').value) || state.portfolio.length + 1;
+  const featured = document.getElementById('pfFeatured').checked;
+  const file = document.getElementById('pfFile').files[0];
+
+  if (!title) { toast('Title is required'); return; }
+  if (!url && !file) { toast('Paste a video URL or upload a file'); return; }
+
+  const finish = (finalUrl) => {
+    const project = {
+      id: 'proj_' + Date.now(),
+      title, category: cat, featured, order,
+      thumb: thumb || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&q=80&auto=format&fit=crop',
+      url: finalUrl, desc
+    };
+    state.portfolio.push(project);
+    save();
+    toast('Portfolio video added ✓');
+    document.getElementById('pfTitle').value='';
+    document.getElementById('pfUrl').value='';
+    document.getElementById('pfThumb').value='';
+    document.getElementById('pfDesc').value='';
+    document.getElementById('pfFile').value='';
+    renderFilters();
+    renderPortfolio('All');
+    renderAdmin();
+    adminFetch(PORTFOLIO_API, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({title, description:desc, thumbnail:project.thumb, video:finalUrl, category:cat, featured, order})
+    }).catch(()=>{});
+  };
+
+  if(file){
+    if (file.size > 8*1024*1024) { toast('Video file too large (max 8MB) — use a hosted link instead'); return; }
+    fileToDataUrl(file).then(finish);
+  } else {
+    finish(url);
+  }
+}
+
+function editPortfolioPrompt(id){
+  const v = state.portfolio.find(x=>x.id===id);
+  if(!v) return;
+  const bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'editPfBg';
+  bg.innerHTML = `
+    <div class="pay-sheet">
+      <h3>Edit Portfolio Video</h3>
+      <div class="form-grid">
+        <div class="field full"><label>Title</label><input id="epTitle" value="${escapeAttr(v.title)}"/></div>
+        <div class="field"><label>Category</label><select id="epCat">
+          ${['Reels','YouTube','Shorts','Cinematic','Ads'].map(c=>`<option ${v.category===c?'selected':''}>${c}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>Order</label><input type="number" id="epOrder" value="${v.order||0}"/></div>
+        <div class="field full"><label>Video URL</label><input id="epUrl" value="${escapeAttr(v.url||'')}"/></div>
+        <div class="field full"><label>Thumbnail URL</label><input id="epThumb" value="${escapeAttr(v.thumb||'')}"/></div>
+        <div class="field full"><label>Description</label><textarea id="epDesc" style="width:100%;min-height:60px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:inherit">${escapeHtml(v.desc||'')}</textarea></div>
+        <div class="field full" style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-full" onclick="document.getElementById('editPfBg').remove()">Cancel</button>
+          <button class="btn btn-primary btn-full" onclick="saveEditedPortfolio('${v.id}')">Save</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(bg);
+  requestAnimationFrame(()=>bg.classList.add('open'));
+}
+function saveEditedPortfolio(id){
+  const v = state.portfolio.find(x=>x.id===id);
+  if(!v) return;
+  v.title = document.getElementById('epTitle').value.trim() || v.title;
+  v.category = document.getElementById('epCat').value;
+  v.order = parseInt(document.getElementById('epOrder').value) || v.order;
+  v.url = document.getElementById('epUrl').value.trim();
+  v.thumb = document.getElementById('epThumb').value.trim();
+  v.desc = document.getElementById('epDesc').value.trim();
+  save();
+  document.getElementById('editPfBg').remove();
+  toast('Portfolio video updated ✓');
+  renderFilters();
+  renderPortfolio('All');
+  renderAdmin();
+}
+
+function deletePortfolio(id){
+  if (!confirm('Delete this portfolio video?')) return;
+  state.portfolio = state.portfolio.filter(p=>p.id!==id);
+  save();
+  toast('Deleted ✓');
+  renderFilters();
+  renderPortfolio('All');
+  renderAdmin();
+  adminFetch(`${PORTFOLIO_API}/${id}`, {method:'DELETE'}).catch(()=>{});
+}
+
+/* ============================================================
+   UTILS
+============================================================ */
+function contactIconsHtml(p){
+  const items = [];
+  if(p.telegram) items.push([`https://t.me/${String(p.telegram).replace('@','')}`,
+    `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.9 4.3 18.6 20c-.2 1-.9 1.3-1.8.8l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.3-5 9.2-8.3c.4-.4-.1-.6-.6-.2L6.2 12.8 1.3 11.3c-1-.3-1-1 .2-1.5L20.6 2.9c.8-.3 1.6.2 1.3 1.4Z"/></svg>`]);
+  if(p.whatsapp) items.push([buildWhatsappLink(p.whatsapp),
+    `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2Zm5.9 14.3c-.3.7-1.4 1.3-2 1.4-.5.1-1.1.1-1.8-.1-.4-.1-1-.3-1.7-.6-3-1.3-5-4.3-5.1-4.5-.1-.2-1.2-1.6-1.2-3.1s.8-2.2 1.1-2.5c.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .6l-.4.5c-.1.2-.3.3-.1.6.2.3.9 1.5 2 2.4 1.3 1.2 2.4 1.5 2.7 1.7.3.2.5.1.7-.1l.6-.7c.2-.3.4-.2.7-.1l1.8.9c.2.1.4.2.4.4.1.2.1.7-.2 1.4Z"/></svg>`]);
+  if(p.email) items.push([`mailto:${p.email}`,
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>`]);
+  return items.map(([href,svg])=>`<a class="c-icon" href="${escapeAttr(href)}" target="_blank" rel="noopener">${svg}</a>`).join('');
+}
+
+function driveFileId(link){
+  if(!link) return null;
+  let m = link.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if(m) return m[1];
+  m = link.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if(m) return m[1];
+  return null;
+}
+function driveThumb(link){
+  const id = driveFileId(link);
+  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : '';
+}
+function drivePreview(link){
+  const id = driveFileId(link);
+  return id ? `https://drive.google.com/file/d/${id}/preview` : link;
+}
+function driveDownload(link){
+  const id = driveFileId(link);
+  return id ? `https://drive.google.com/uc?export=download&id=${id}` : link;
+}
+function buildWhatsappLink(raw){
+  if(!raw) return '';
+  raw = raw.trim();
+  if(/^https?:\/\//i.test(raw)) return raw; // full custom link, used as-is
+  const digits = raw.replace(/[^0-9]/g,'');
+  return digits ? `https://wa.me/${digits}` : '';
+}
+
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeAttr(s){ return escapeHtml(s); }
+function money(n){ return '₹' + (n||0).toLocaleString('en-IN'); }
+function copyLink(url){ navigator.clipboard?.writeText(url); toast('Link copied ✓'); }
+function backToSite(){ location.hash = '#/'; route(); }
+
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+/* ============================================================
+   GLOBAL EVENTS
+============================================================ */
+document.getElementById('menuBtn').addEventListener('click', ()=>{
+  document.getElementById('mobileMenu').classList.toggle('open');
+});
+window.addEventListener('scroll', ()=>{
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 20);
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeVideo(); });
+window.addEventListener('hashchange', route);
+window.addEventListener('load', route);
+route();
+loadPortfolioFromKV();
+</script>
+</body>
+</html>
